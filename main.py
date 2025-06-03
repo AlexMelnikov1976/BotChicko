@@ -14,11 +14,18 @@ from datetime import datetime, timedelta
 # === Настройки ===
 load_dotenv()
 SHEET_ID = "1SHHKKcgXgbzs_AyBQJpyHx9zDauVz6iR9lz1V7Q3hyw"
-SERVICE_ACCOUNT_FILE = "credentials.json"
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-CREDS = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+import json
+import os
+from google.oauth2 import service_account
+
+CREDS = service_account.Credentials.from_service_account_info(
+    json.loads(os.environ['GOOGLE_CREDENTIALS']),
+    scopes=SCOPES
+)
+
 
 def format_ruble(val):
     return f"{val:,.2f}₽".replace(",", " ").replace(".00", "")
