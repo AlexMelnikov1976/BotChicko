@@ -1,0 +1,6 @@
+pandas
+python-dotenv
+requests
+google-api-python-client
+google-auth
+google-auth-httplib2
