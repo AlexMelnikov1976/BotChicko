@@ -94,7 +94,7 @@ def analyze(df):
         f"🧾 Средний чек: {format_ruble(avg_check)}\n"
         f"📏 Глубина чека: {depth:.1f}\n"
         f"🪑 Начислено по залу: {format_ruble(hall_income)}\n"
-        f"📦 Доставка: {format_ruble(delivery)}\n"
+        f"📦 Доставка: {format_ruble(delivery)} ({delivery / total * 100:.1f}%)"
         f"📊 Доля ЗП зала: {hall_share:.1f}%"
     )
 
