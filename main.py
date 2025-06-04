@@ -79,7 +79,7 @@ def analyze(df):
 
     today_df = df[df["Дата"] == last_date]
 
-        bar = round(today_df["Выручка бар"].sum())
+    bar = round(today_df["Выручка бар"].sum())
     kitchen = round(today_df["Выручка кухня"].sum())
     total = bar + kitchen
     avg_check = round(today_df["Ср. чек общий"].mean() / 100)
