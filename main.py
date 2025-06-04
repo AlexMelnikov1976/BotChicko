@@ -1,4 +1,7 @@
 import os
+import json
+from dotenv import load_dotenv
+load_dotenv()
 import pandas as pd
 import matplotlib.pyplot as plt
 import gspread
@@ -27,8 +30,17 @@ CREDS = service_account.Credentials.from_service_account_info(
 )
 
 
-def format_ruble(val):
-    return f"{val:,.2f}₽".replace(",", " ").replace(".00", "")
+def format_ruble(val, decimals=0):
+    if pd.isna(val):
+        return "—"
+    formatted = f"{val:,.{decimals}f}₽".replace(",", " ")
+    if decimals == 0:
+        formatted = formatted.replace(".00", "")
+    return formatted
+
+
+def format_depth(val):
+    return f"{val:.1f}"
 
 def send_to_telegram(message: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -67,22 +79,24 @@ def analyze(df):
 
     today_df = df[df["Дата"] == last_date]
 
-    bar = today_df["Выручка бар"].sum()
-    kitchen = today_df["Выручка кухня"].sum()
+        bar = round(today_df["Выручка бар"].sum())
+    kitchen = round(today_df["Выручка кухня"].sum())
     total = bar + kitchen
-    avg_check = today_df["Ср. чек общий"].mean()/100
-    depth = today_df["Ср. поз чек общий"].mean()/10
-    hall_income = today_df["Зал начислено"].sum()/100
-    delivery = today_df["Выручка доставка "].sum()
+    avg_check = round(today_df["Ср. чек общий"].mean() / 100)
+    depth = round(today_df["Ср. поз чек общий"].mean() / 10, 1)
+    hall_income = round(today_df["Зал начислено"].sum() / 100)
+    delivery = round(today_df["Выручка доставка "].sum())
+
 
     return (
-        f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
-        f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
-        f"🧾 Средний чек: {format_ruble(avg_check)}\n"
-        f"📏 Глубина чека: {depth:.2f}\n"
-        f"🪑 Начислено по залу: {format_ruble(hall_income)}\n"
-        f"📦 Доставка: {format_ruble(delivery)}"
-    )
+    f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
+    f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
+    f"🧾 Средний чек: {format_ruble(avg_check)}\n"
+    f"📏 Глубина чека: {format_ruble(depth, 1)}\n"
+    f"🪑 Начислено по залу: {format_ruble(hall_income)}\n"
+    f"📦 Доставка: {format_ruble(delivery)}"
+)
+
 
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_chat.id) != str(CHAT_ID):

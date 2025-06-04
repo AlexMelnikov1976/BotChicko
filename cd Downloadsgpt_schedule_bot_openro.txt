@@ -1,0 +1,2 @@
+cd Downloads\gpt_schedule_bot_openrouter
+python main.py
