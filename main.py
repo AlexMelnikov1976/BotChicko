@@ -82,20 +82,22 @@ def analyze(df):
     bar = round(today_df["Выручка бар"].sum())
     kitchen = round(today_df["Выручка кухня"].sum())
     total = bar + kitchen
-    avg_check = round(today_df["Ср. чек общий"].mean() / 100)
-    depth = round(today_df["Ср. поз чек общий"].mean() / 10, 1)
-    hall_income = round(today_df["Зал начислено"].sum() / 100)
+    avg_check = round(today_df["Ср. чек общий"].mean()/100)
+    depth = round(today_df["Ср. поз чек общий"].mean()/10, 1)
+    hall_income = round(today_df["Зал начислено"].sum()/100)
     delivery = round(today_df["Выручка доставка "].sum())
-
+    hall_share = (hall_income / total * 100) if total else 0
 
     return (
-    f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
-    f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
-    f"🧾 Средний чек: {format_ruble(round(avg_check))}\n"
-    f"📏 Глубина чека: {depth:.1f}\n"
-    f"🪑 Начислено по залу: {format_ruble(hall_income)}\n"
-    f"📦 Доставка: {format_ruble(delivery)}"
-)
+        f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
+        f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
+        f"🧾 Средний чек: {format_ruble(avg_check)}\n"
+        f"📏 Глубина чека: {depth:.1f}\n"
+        f"🪑 Начислено по залу: {format_ruble(hall_income)}\n"
+        f"📦 Доставка: {format_ruble(delivery)}\n"
+        f"📊 Доля ЗП зала: {hall_share:.1f}%"
+    )
+
 
 
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
