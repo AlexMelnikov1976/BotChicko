@@ -12,6 +12,8 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from dotenv import load_dotenv
 import requests
 import threading
+import calendar  # нужно для определения количества дней в месяце
+
 from datetime import datetime, timedelta
 
 # === Настройки ===
@@ -77,6 +79,35 @@ def analyze(df):
     if pd.isna(last_date):
         return "📅 Дата: не определена\n\n⚠️ Нет доступных данных"
 
+async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if str(update.effective_chat.id) != str(CHAT_ID):
+        return
+    try:
+        df = read_data()
+        now = datetime.now()
+        current_month_df = df[(df["Дата"].dt.year == now.year) & (df["Дата"].dt.month == now.month)]
+
+        if current_month_df.empty:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет данных за текущий месяц.")
+            return
+
+        total_revenue_series = current_month_df["Выручка бар"] + current_month_df["Выручка кухня"]
+        avg_daily_revenue = total_revenue_series.mean()
+        days_in_month = calendar.monthrange(now.year, now.month)[1]
+        forecast = avg_daily_revenue * days_in_month
+
+        message = (
+            f"📅 Прогноз на {now.strftime('%B %Y')}:\n"
+            f"📈 Средняя дневная выручка: {format_ruble(avg_daily_revenue)}\n"
+            f"📊 Прогноз выручки за месяц: {format_ruble(forecast)}"
+        )
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+
+    except Exception as e:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
+
+
+
     today_df = df[df["Дата"] == last_date]
 
     bar = round(today_df["Выручка бар"].sum())
@@ -94,7 +125,7 @@ def analyze(df):
         f"🧾 Средний чек: {format_ruble(avg_check)}\n"
         f"📏 Глубина чека: {depth:.1f}\n"
         f"🪑 Начислено по залу: {format_ruble(hall_income)}\n"
-        f"📦 Доставка: {format_ruble(delivery)} ({delivery / total * 100:.1f}%)"
+        f"📦 Доставка: {format_ruble(delivery)} ({delivery / total * 100:.1f}%)\n"
         f"📊 Доля ЗП зала: {hall_share:.1f}%"
     )
 
@@ -121,8 +152,16 @@ def job():
 if __name__ == "__main__":
     print("⏰ Бот запущен. Отчёт будет в 9:30 по Калининграду")
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+
+    # Регистрируем команды
     app.add_handler(CommandHandler("analyze", analyze_command))
+    app.add_handler(CommandHandler("forecast", forecast_command))  # ← ЭТУ СЮДА
+
+    # Планировщик
     scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
     scheduler.add_job(job, trigger="cron", hour=9, minute=30)
     threading.Thread(target=scheduler.start).start()
+
+    # Запуск бота
     app.run_polling()
+
