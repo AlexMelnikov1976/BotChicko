@@ -111,16 +111,30 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет данных за текущий месяц.")
             return
 
+        # Выручка и ЗП
         total_revenue_series = current_month_df["Выручка бар"] + current_month_df["Выручка кухня"]
+        salary_series = current_month_df["Начислено"]
+
         avg_daily_revenue = total_revenue_series.mean()
+        avg_daily_salary = salary_series.mean()
+
         days_in_month = calendar.monthrange(now.year, now.month)[1]
-        forecast = avg_daily_revenue * days_in_month
+
+        forecast_revenue = avg_daily_revenue * days_in_month
+        forecast_salary = avg_daily_salary * days_in_month
+        labor_cost_share = (forecast_salary / forecast_revenue * 100) if forecast_revenue else 0
 
         message = (
             f"📅 Прогноз на {now.strftime('%B %Y')}:\n"
             f"📈 Средняя дневная выручка: {format_ruble(avg_daily_revenue)}\n"
-            f"📊 Прогноз выручки за месяц: {format_ruble(forecast)}"
+            f"📊 Прогноз выручки за месяц: {format_ruble(forecast_revenue)}\n"
+            f"🪑 ЗП прогноз: {format_ruble(forecast_salary)} (LC: {labor_cost_share:.1f}%)"
         )
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+
+    except Exception as e:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
+
         await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
     except Exception as e:
