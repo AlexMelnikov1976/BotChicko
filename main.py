@@ -111,7 +111,7 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет данных за текущий месяц.")
             return
 
-        # Выручка и ЗП
+        # Расчёт по текущему месяцу
         total_revenue_series = current_month_df["Выручка бар"] + current_month_df["Выручка кухня"]
         salary_series = current_month_df["Начислено"]
 
