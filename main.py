@@ -1,20 +1,17 @@
 import os
 import json
-from dotenv import load_dotenv
-load_dotenv()
+import calendar
+import threading
 import pandas as pd
 import matplotlib.pyplot as plt
 import gspread
-from google.oauth2.service_account import Credentials
+import requests
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
+from google.oauth2 import service_account
 from apscheduler.schedulers.blocking import BlockingScheduler
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
-from dotenv import load_dotenv
-import requests
-import threading
-import calendar  # нужно для определения количества дней в месяце
-
-from datetime import datetime, timedelta
 
 # === Настройки ===
 load_dotenv()
@@ -22,15 +19,11 @@ SHEET_ID = "1SHHKKcgXgbzs_AyBQJpyHx9zDauVz6iR9lz1V7Q3hyw"
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-import json
-import os
-from google.oauth2 import service_account
 
 CREDS = service_account.Credentials.from_service_account_info(
     json.loads(os.environ['GOOGLE_CREDENTIALS']),
     scopes=SCOPES
 )
-
 
 def format_ruble(val, decimals=0):
     if pd.isna(val):
@@ -39,10 +32,6 @@ def format_ruble(val, decimals=0):
     if decimals == 0:
         formatted = formatted.replace(".00", "")
     return formatted
-
-
-def format_depth(val):
-    return f"{val:.1f}"
 
 def send_to_telegram(message: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -79,6 +68,37 @@ def analyze(df):
     if pd.isna(last_date):
         return "📅 Дата: не определена\n\n⚠️ Нет доступных данных"
 
+    today_df = df[df["Дата"] == last_date]
+    bar = round(today_df["Выручка бар"].sum())
+    kitchen = round(today_df["Выручка кухня"].sum())
+    total = bar + kitchen
+    avg_check = round(today_df["Ср. чек общий"].mean()/100)
+    depth = round(today_df["Ср. поз чек общий"].mean()/10, 1)
+    hall_income = round(today_df["Зал начислено"].sum()/100)
+    delivery = round(today_df["Выручка доставка "].sum())
+    hall_share = (hall_income / total * 100) if total else 0
+    delivery_share = (delivery / total * 100) if total else 0
+
+    return (
+        f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
+        f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
+        f"🧾 Средний чек: {format_ruble(avg_check)}\n"
+        f"📏 Глубина чека: {depth:.1f}\n"
+        f"🪑 Начислено по залу: {format_ruble(hall_income)}\n"
+        f"📦 Доставка: {format_ruble(delivery)} ({delivery_share:.1f}%)\n"
+        f"📊 Доля ЗП зала: {hall_share:.1f}%"
+    )
+
+async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if str(update.effective_chat.id) != str(CHAT_ID):
+        return
+    try:
+        df = read_data()
+        report = analyze(df)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=report)
+    except Exception as e:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
+
 async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
@@ -106,41 +126,6 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
-
-
-    today_df = df[df["Дата"] == last_date]
-
-    bar = round(today_df["Выручка бар"].sum())
-    kitchen = round(today_df["Выручка кухня"].sum())
-    total = bar + kitchen
-    avg_check = round(today_df["Ср. чек общий"].mean()/100)
-    depth = round(today_df["Ср. поз чек общий"].mean()/10, 1)
-    hall_income = round(today_df["Зал начислено"].sum()/100)
-    delivery = round(today_df["Выручка доставка "].sum())
-    hall_share = (hall_income / total * 100) if total else 0
-
-    return (
-        f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
-        f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
-        f"🧾 Средний чек: {format_ruble(avg_check)}\n"
-        f"📏 Глубина чека: {depth:.1f}\n"
-        f"🪑 Начислено по залу: {format_ruble(hall_income)}\n"
-        f"📦 Доставка: {format_ruble(delivery)} ({delivery / total * 100:.1f}%)\n"
-        f"📊 Доля ЗП зала: {hall_share:.1f}%"
-    )
-
-
-
-async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if str(update.effective_chat.id) != str(CHAT_ID):
-        return
-    try:
-        df = read_data()
-        report = analyze(df)
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=report)
-    except Exception as e:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
-
 def job():
     try:
         df = read_data()
@@ -153,15 +138,11 @@ if __name__ == "__main__":
     print("⏰ Бот запущен. Отчёт будет в 9:30 по Калининграду")
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    # Регистрируем команды
     app.add_handler(CommandHandler("analyze", analyze_command))
-    app.add_handler(CommandHandler("forecast", forecast_command))  # ← ЭТУ СЮДА
+    app.add_handler(CommandHandler("forecast", forecast_command))
 
-    # Планировщик
     scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
     scheduler.add_job(job, trigger="cron", hour=9, minute=30)
     threading.Thread(target=scheduler.start).start()
 
-    # Запуск бота
     app.run_polling()
-
