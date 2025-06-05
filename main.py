@@ -135,11 +135,6 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
-
-    except Exception as e:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
-
 def job():
     try:
         df = read_data()
