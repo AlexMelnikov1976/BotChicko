@@ -121,7 +121,8 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         days_in_month = calendar.monthrange(now.year, now.month)[1]
 
         forecast_revenue = avg_daily_revenue * days_in_month
-        forecast_salary = avg_daily_salary * days_in_month
+        fixed_salaries = 600_000
+        forecast_salary = avg_daily_salary * days_in_month + fixed_salaries
         labor_cost_share = (forecast_salary / forecast_revenue * 100) if forecast_revenue else 0
 
         message = (
