@@ -72,9 +72,9 @@ def analyze(df):
     bar = round(today_df["Выручка бар"].sum())
     kitchen = round(today_df["Выручка кухня"].sum())
     total = bar + kitchen
-    avg_check = round(today_df["Ср. чек общий"].mean()/100)
+    avg_check = round(today_df["Ср. чек общий"].mean())
     depth = round(today_df["Ср. поз чек общий"].mean()/10, 1)
-    hall_income = round(today_df["Зал начислено"].sum()/100)
+    hall_income = round(today_df["Зал начислено"].sum())
     delivery = round(today_df["Выручка доставка "].sum())
     hall_share = (hall_income / total * 100) if total else 0
     delivery_share = (delivery / total * 100) if total else 0
