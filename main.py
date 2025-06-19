@@ -85,13 +85,7 @@ def analyze(df):
     .str.replace("%", "")\
     .str.strip()
 
-    foodcost_numeric = pd.to_numeric(foodcost_raw, errors="coerce")
-
-    # Если значения меньше 1 — это доля, умножаем на 100
-    foodcost = round(
-        foodcost_numeric.apply(lambda x: x * 100 if x is not None and x < 1 else x).mean(),
-        1
-    )
+    foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean() / 100, 1)
 
     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
     foodcost_emoji = "🙂" if foodcost <= 23 else "🙁"
