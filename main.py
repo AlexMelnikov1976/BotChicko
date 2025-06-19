@@ -73,18 +73,19 @@ def analyze(df):
     kitchen = round(today_df["Выручка кухня"].sum())
     total = bar + kitchen
     avg_check = round(today_df["Ср. чек общий"].mean())
-    depth = round(today_df["Ср. поз чек общий"].mean()/10, 1)
+    depth = round(today_df["Ср. поз чек общий"].mean() / 10, 1)
     hall_income = round(today_df["Зал начислено"].sum())
     delivery = round(today_df["Выручка доставка "].sum())
     hall_share = (hall_income / total * 100) if total else 0
     delivery_share = (delivery / total * 100) if total else 0
-    # Фудкост — берём среднее значение из колонки "Фудкост общий, %"
-    # Фудкост — убираем %, преобразуем в число, округляем до десятых
-    foodcost_raw = today_df["Фудкост общий, %"].astype(str).str.replace(",", ".").str.replace("%", "").str.strip()
+
+    # 🔽 Вот сюда вставляем блок обработки фудкоста:
+    foodcost_raw = today_df["Фудкост общий, %"].astype(str)\
+        .str.replace(",", ".")\
+        .str.replace("%", "")\
+        .str.strip()
     foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean(), 1)
 
-
-    # Эмодзи по среднему чеку
     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
     foodcost_emoji = "🙂" if foodcost <= 23 else "🙁"
 
@@ -96,8 +97,7 @@ def analyze(df):
         f"🪑 ЗП зал: {format_ruble(hall_income)}\n"
         f"📦 Доставка: {format_ruble(delivery)} ({delivery_share:.1f}%)\n"
         f"📊 Доля ЗП зала: {hall_share:.1f}%\n"
-        f"🍔 Фудкост: {round(foodcost, 1)} {foodcost_emoji}"
-
+        f"🍔 Фудкост: {foodcost}% {foodcost_emoji}"
     )
 
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -138,8 +138,8 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         message = (
             f"📅 Прогноз на {now.strftime('%B %Y')}:\n"
-            f"📈 Средняя дневная выручка: {format_ruble(avg_daily_revenue)}\n"
-            f"📊 Прогноз выручки за месяц: {format_ruble(forecast_revenue)}\n"
+            #f"📈 Средняя дневная выручка: {format_ruble(avg_daily_revenue)}\n"
+            f"📊 Прогноз: {format_ruble(forecast_revenue)}\n"
             f"🪑 ЗП прогноз: {format_ruble(forecast_salary)} (LC: {labor_cost_share:.1f}%)"
         )
         await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
