@@ -79,6 +79,9 @@ def analyze(df):
     hall_share = (hall_income / total * 100) if total else 0
     delivery_share = (delivery / total * 100) if total else 0
 
+    # Эмодзи по среднему чеку
+    avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
+
     return (
         f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
         f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
