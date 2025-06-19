@@ -113,7 +113,7 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Расчёт по текущему месяцу
         total_revenue_series = current_month_df["Выручка бар"] + current_month_df["Выручка кухня"]
-        salary_series = current_month_df["Начислено"]/100
+        salary_series = current_month_df["Начислено"]
 
         avg_daily_revenue = total_revenue_series.mean()
         avg_daily_salary = salary_series.mean()
