@@ -78,6 +78,8 @@ def analyze(df):
     delivery = round(today_df["Выручка доставка "].sum())
     hall_share = (hall_income / total * 100) if total else 0
     delivery_share = (delivery / total * 100) if total else 0
+    # Фудкост — берём среднее значение из колонки "Фудкост общий, %"
+    foodcost = today_df["Фудкост общий, %"].mean()
 
     # Эмодзи по среднему чеку
     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
@@ -90,6 +92,7 @@ def analyze(df):
         f"🪑 Начислено по залу: {format_ruble(hall_income)}\n"
         f"📦 Доставка: {format_ruble(delivery)} ({delivery_share:.1f}%)\n"
         f"📊 Доля ЗП зала: {hall_share:.1f}%"
+        f"🍔 Фудкост: {foodcost:.1f}%"
     )
 
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
