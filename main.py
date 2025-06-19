@@ -79,7 +79,7 @@ def analyze(df):
     hall_share = (hall_income / total * 100) if total else 0
     delivery_share = (delivery / total * 100) if total else 0
     # Фудкост — берём среднее значение из колонки "Фудкост общий, %"
-    foodcost = today_df["Фудкост общий, %"].mean/100(), 1)
+    foodcost = round(today_df["Фудкост общий, %"].mean/100(), 1)
 
     # Эмодзи по среднему чеку
     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
@@ -88,9 +88,9 @@ def analyze(df):
     return (
         f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
         f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
-        f"🧾 Средний чек: {format_ruble(avg_check)} {avg_check_emoji}\n"
-        f"📏 Глубина чека: {depth:.1f}\n"
-        f"🪑 Начислено по залу: {format_ruble(hall_income)}\n"
+        f"🧾 Ср.чек: {format_ruble(avg_check)} {avg_check_emoji}\n"
+        f"📏 Глубина: {depth:.1f}\n"
+        f"🪑 ЗП зал: {format_ruble(hall_income)}\n"
         f"📦 Доставка: {format_ruble(delivery)} ({delivery_share:.1f}%)\n"
         f"📊 Доля ЗП зала: {hall_share:.1f}%\n"
         f"🍔 Фудкост: {round(foodcost, 1)} {foodcost_emoji}"
