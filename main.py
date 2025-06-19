@@ -85,7 +85,7 @@ def analyze(df):
     return (
         f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
         f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
-        f"🧾 Средний чек: {format_ruble(avg_check)}\n"
+        f"🧾 Средний чек: {format_ruble(avg_check)} {avg_check_emoji}\n"
         f"📏 Глубина чека: {depth:.1f}\n"
         f"🪑 Начислено по залу: {format_ruble(hall_income)}\n"
         f"📦 Доставка: {format_ruble(delivery)} ({delivery_share:.1f}%)\n"
