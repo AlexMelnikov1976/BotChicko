@@ -79,7 +79,7 @@ def analyze(df):
     hall_share = (hall_income / total * 100) if total else 0
     delivery_share = (delivery / total * 100) if total else 0
     # Фудкост — берём среднее значение из колонки "Фудкост общий, %"
-    foodcost = today_df["Фудкост общий, %"].mean/100()
+    foodcost = today_df["Фудкост общий, %"].mean/100(), 1)
 
     # Эмодзи по среднему чеку
     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
