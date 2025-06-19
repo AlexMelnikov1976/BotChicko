@@ -171,6 +171,9 @@ def analyze_all_managers(df):
         "Ср. поз чек общий": "mean"
     }).reset_index()
 
+    if grouped.empty:
+        return "⚠️ Нет данных для анализа менеджеров за текущий месяц."
+
     max_revenue = grouped["Выручка"].max()
     max_check = grouped["Ср. чек общий"].max()
     max_depth = grouped["Ср. поз чек общий"].max()
