@@ -83,6 +83,7 @@ def analyze(df):
 
     # Эмодзи по среднему чеку
     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
+    foodcost_emoji = "🙂" if foodcost <= 23 else "🙁"
 
     return (
         f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
@@ -91,8 +92,8 @@ def analyze(df):
         f"📏 Глубина чека: {depth:.1f}\n"
         f"🪑 Начислено по залу: {format_ruble(hall_income)}\n"
         f"📦 Доставка: {format_ruble(delivery)} ({delivery_share:.1f}%)\n"
-        f"📊 Доля ЗП зала: {hall_share:.1f}%"
-        f"🍔 Фудкост: {foodcost:.1f}%"
+        f"📊 Доля ЗП зала: {hall_share:.1f}%\n"
+        f"🍔 Фудкост: {foodcost:.1f}% {foodcost_emoji}"
     )
 
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
