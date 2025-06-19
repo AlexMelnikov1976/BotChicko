@@ -49,7 +49,7 @@ def read_data():
         return pd.DataFrame()
 
     for col in df.columns:
-        if col != "Дата":
+        if col not in ["Дата", "Фудкост общий, %"]:
             df[col] = (
                 df[col].astype(str)
                 .str.replace(",", ".")
@@ -80,10 +80,13 @@ def analyze(df):
     delivery_share = (delivery / total * 100) if total else 0
 
     # 🔽 Вот сюда вставляем блок обработки фудкоста:
+    # Обрабатываем "Фудкост общий, %" вручную: убираем %, пробелы, запятые
     foodcost_raw = today_df["Фудкост общий, %"].astype(str)\
-        .str.replace(",", ".")\
-        .str.replace("%", "")\
-        .str.strip()
+    .str.replace(",", ".")\
+    .str.replace("%", "")\
+    .str.strip()
+
+    # Переводим в число и округляем
     foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean(), 1)
 
     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
@@ -139,8 +142,8 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = (
             f"📅 Прогноз на {now.strftime('%B %Y')}:\n"
             #f"📈 Средняя дневная выручка: {format_ruble(avg_daily_revenue)}\n"
-            f"📊 Прогноз: {format_ruble(forecast_revenue)}\n"
-            f"🪑 ЗП прогноз: {format_ruble(forecast_salary)} (LC: {labor_cost_share:.1f}%)"
+            f"📊 Выручка: {format_ruble(forecast_revenue)}\n"
+            f"🪑 ЗП: {format_ruble(forecast_salary)} (LC: {labor_cost_share:.1f}%)"
         )
         await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
