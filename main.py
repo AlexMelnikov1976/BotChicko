@@ -79,15 +79,19 @@ def analyze(df):
     hall_share = (hall_income / total * 100) if total else 0
     delivery_share = (delivery / total * 100) if total else 0
 
-    # 🔽 Вот сюда вставляем блок обработки фудкоста:
-    # Обрабатываем "Фудкост общий, %" вручную: убираем %, пробелы, запятые
+    # Обработка фудкоста: 0.225 → 22.5
     foodcost_raw = today_df["Фудкост общий, %"].astype(str)\
     .str.replace(",", ".")\
     .str.replace("%", "")\
     .str.strip()
 
-    # Переводим в число и округляем
-    foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean(), 1)
+    foodcost_numeric = pd.to_numeric(foodcost_raw, errors="coerce")
+
+    # Если значения меньше 1 — это доля, умножаем на 100
+    foodcost = round(
+        foodcost_numeric.apply(lambda x: x * 100 if x is not None and x < 1 else x).mean(),
+        1
+    )
 
     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
     foodcost_emoji = "🙂" if foodcost <= 23 else "🙁"
