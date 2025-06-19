@@ -118,7 +118,7 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         total_revenue_series = current_month_df["Выручка бар"] + current_month_df["Выручка кухня"]
-        salary_series = current_month_df["Начислено"]  # ← БЕЗ деления на 100
+        salary_series = current_month_df["Начислено"]  # ← Фикс: никаких делений!
 
         avg_daily_revenue = total_revenue_series.mean()
         avg_daily_salary = salary_series.mean()
