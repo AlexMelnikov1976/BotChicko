@@ -79,7 +79,10 @@ def analyze(df):
     hall_share = (hall_income / total * 100) if total else 0
     delivery_share = (delivery / total * 100) if total else 0
     # Фудкост — берём среднее значение из колонки "Фудкост общий, %"
-    foodcost = round(today_df["Фудкост общий, %"].mean/100(), 1)
+    # Фудкост — убираем %, преобразуем в число, округляем до десятых
+    foodcost_raw = today_df["Фудкост общий, %"].astype(str).str.replace(",", ".").str.replace("%", "").str.strip()
+    foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean(), 1)
+
 
     # Эмодзи по среднему чеку
     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
