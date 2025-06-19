@@ -93,7 +93,7 @@ def analyze(df):
         f"🪑 Начислено по залу: {format_ruble(hall_income)}\n"
         f"📦 Доставка: {format_ruble(delivery)} ({delivery_share:.1f}%)\n"
         f"📊 Доля ЗП зала: {hall_share:.1f}%\n"
-        f"\n🍔 Фудкост: {round(foodcost, 1)}% {foodcost_emoji}"
+        f"🍔 Фудкост: {round(foodcost, 1)} {foodcost_emoji}"
 
     )
 
