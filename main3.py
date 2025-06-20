@@ -49,7 +49,7 @@ def read_data():
         return pd.DataFrame()
 
     for col in df.columns:
-        if col != "Дата":
+        if col not in ["\u0414\u0430\u0442\u0430", "\u0424\u0443\u0434\u043a\u043e\u0441\u0442 \u043e\u0431\u0449\u0438\u0439, %"]:
             df[col] = (
                 df[col].astype(str)
                 .str.replace(",", ".")
@@ -57,36 +57,44 @@ def read_data():
             )
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    df["Дата"] = pd.to_datetime(df["Дата"], dayfirst=True, errors="coerce")
-    df = df.dropna(subset=["Дата"])
-    print("Уникальные даты после парсинга:", df["Дата"].unique())
+    df["\u0414\u0430\u0442\u0430"] = pd.to_datetime(df["\u0414\u0430\u0442\u0430"], dayfirst=True, errors="coerce")
+    df = df.dropna(subset=["\u0414\u0430\u0442\u0430"])
+    print("\u0423\u043d\u0438\u043a\u0430\u043b\u044c\u043d\u044b\u0435 \u0434\u0430\u0442\u044b после парсинга:", df["\u0414\u0430\u0442\u0430"].unique())
     print(f"Успешно прочитали! {df.shape}")
     return df
 
 def analyze(df):
-    last_date = df["Дата"].max()
+    last_date = df["\u0414\u0430\u0442\u0430"].max()
     if pd.isna(last_date):
-        return "📅 Дата: не определена\n\n⚠️ Нет доступных данных"
+        return "\ud83d\uddd3 \u0414\u0430\u0442\u0430: не определена\n\n\u26a0\ufe0f Нет доступных данных"
 
-    today_df = df[df["Дата"] == last_date]
-    bar = round(today_df["Выручка бар"].sum())
-    kitchen = round(today_df["Выручка кухня"].sum())
+    today_df = df[df["\u0414\u0430\u0442\u0430"] == last_date]
+    bar = round(today_df["\u0412\u044bручка бар"].sum())
+    kitchen = round(today_df["\u0412\u044bручка кухня"].sum())
     total = bar + kitchen
-    avg_check = round(today_df["Ср. чек общий"].mean()/100)
-    depth = round(today_df["Ср. поз чек общий"].mean()/10, 1)
-    hall_income = round(today_df["Зал начислено"].sum()/100)
-    delivery = round(today_df["Выручка доставка "].sum())
+    avg_check = round(today_df["\u0421р. чек общий"].mean())
+    depth = round(today_df["\u0421р. поз чек общий"].mean() / 10, 1)
+    hall_income = round(today_df["\u0417ал начислено"].sum())
+    delivery = round(today_df["\u0412ыручка доставка "].sum())
     hall_share = (hall_income / total * 100) if total else 0
     delivery_share = (delivery / total * 100) if total else 0
 
+    foodcost_raw = today_df["\u0424удкост общий, %"].astype(str)
+    foodcost_raw = foodcost_raw.str.replace(",", ".").str.replace("%", "").str.strip()
+    foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean() / 100, 1)
+
+    avg_check_emoji = "\ud83d\ude42" if avg_check >= 1300 else "\ud83d\ude41"
+    foodcost_emoji = "\ud83d\ude42" if foodcost <= 23 else "\ud83d\ude41"
+
     return (
-        f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
+        f"🔽 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
         f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
-        f"🧾 Средний чек: {format_ruble(avg_check)}\n"
-        f"📏 Глубина чека: {depth:.1f}\n"
-        f"🪑 Начислено по залу: {format_ruble(hall_income)}\n"
+        f"🧾 Ср.чек: {format_ruble(avg_check)} {avg_check_emoji}\n"
+        f"📏 Глубина: {depth:.1f}\n"
+        f"🪑 ЗП зал: {format_ruble(hall_income)}\n"
         f"📦 Доставка: {format_ruble(delivery)} ({delivery_share:.1f}%)\n"
-        f"📊 Доля ЗП зала: {hall_share:.1f}%"
+        f"📊 Доля ЗП зала: {hall_share:.1f}%\n"
+        f"🍔 Фудкост: {foodcost}% {foodcost_emoji}"
     )
 
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -105,15 +113,14 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         df = read_data()
         now = datetime.now()
-        current_month_df = df[(df["Дата"].dt.year == now.year) & (df["Дата"].dt.month == now.month)]
+        current_month_df = df[(df["\u0414\u0430\u0442\u0430"].dt.year == now.year) & (df["\u0414\u0430\u0442\u0430"].dt.month == now.month)]
 
         if current_month_df.empty:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет данных за текущий месяц.")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="\u26a0\ufe0f Нет данных за текущий месяц.")
             return
 
-        # Расчёт по текущему месяцу
-        total_revenue_series = current_month_df["Выручка бар"] + current_month_df["Выручка кухня"]
-        salary_series = current_month_df["Начислено"]
+        total_revenue_series = current_month_df["\u0412ыручка бар"] + current_month_df["\u0412ыручка кухня"]
+        salary_series = current_month_df["\u041dачислено"]
 
         avg_daily_revenue = total_revenue_series.mean()
         avg_daily_salary = salary_series.mean()
@@ -126,33 +133,46 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         labor_cost_share = (forecast_salary / forecast_revenue * 100) if forecast_revenue else 0
 
         message = (
-            f"📅 Прогноз на {now.strftime('%B %Y')}:\n"
-            f"📈 Средняя дневная выручка: {format_ruble(avg_daily_revenue)}\n"
-            f"📊 Прогноз выручки за месяц: {format_ruble(forecast_revenue)}\n"
-            f"🪑 ЗП прогноз: {format_ruble(forecast_salary)} (LC: {labor_cost_share:.1f}%)"
+            f"🔽 Прогноз на {now.strftime('%B %Y')}:\n"
+            f"📊 Выручка: {format_ruble(forecast_revenue)}\n"
+            f"🪑 ЗП: {format_ruble(forecast_salary)} (LC: {labor_cost_share:.1f}%)"
         )
         await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
-def job():
+async def best_manager_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if str(update.effective_chat.id) != str(CHAT_ID):
+        return
     try:
         df = read_data()
-        report = analyze(df)
-        send_to_telegram(report)
-    except Exception as e:
-        send_to_telegram(f"❌ Ошибка: {str(e)}")
+        now = datetime.now()
+        current_month_df = df[(df["\u0414\u0430\u0442\u0430"].dt.year == now.year) & (df["\u0414\u0430\u0442\u0430"].dt.month == now.month)]
 
-if __name__ == "__main__":
-    print("⏰ Бот запущен. Отчёт будет в 9:30 по Калининграду")
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+        if current_month_df.empty or "\u041c\u0435\u043d\u0435\u0434\u0436\u0435\u0440" not in current_month_df.columns:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="\u26a0\ufe0f Нет данных о менеджерах.")
+            return
 
-    app.add_handler(CommandHandler("analyze", analyze_command))
-    app.add_handler(CommandHandler("forecast", forecast_command))
+        manager_stats = current_month_df.groupby("\u041cенеджер").agg({
+            "\u0412\u044bручка бар": "sum",
+            "\u0412\u044bручка кухня": "sum",
+            "\u0421р. чек общий": "mean",
+            "\u0421р. поз чек общий": "mean"
+        })
 
-    scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
-    scheduler.add_job(job, trigger="cron", hour=9, minute=30)
-    threading.Thread(target=scheduler.start).start()
+        manager_stats["\u041eбщая выручка"] = manager_stats["\u0412\u044bручка бар"] + manager_stats["\u0412\u044bручка кухня"]
+        top_manager = manager_stats.sort_values("\u041eбщая выручка", ascending=False).head(1)
 
-    app.run_polling()
+        if top_manager.empty:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="\u26a0\ufe0f Не удалось определить лучшего менеджера.")
+            return
+
+        name = top_manager.index[0]
+        total = top_manager["\u041eбщая выручка"].values[0]
+        avg_check = top_manager["\u0421р. чек общий"].values[0]
+        avg_depth = top_manager["\u0421р. поз чек общий"].values[0] / 10
+
+        message = (
+            f"🏆 Лучший менеджер за {now.strftime('%B %Y')}:\n\n"
+            f"👤 {
