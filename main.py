@@ -156,19 +156,23 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id, text="📥 Команда получена!")
 
         df = read_data()
-        now = datetime.now()
-        current_month_df = df[(df["Дата"].dt.year == now.year) & (df["Дата"].dt.month == now.month)]
 
-        if current_month_df.empty or "Менеджер" not in current_month_df.columns:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет данных о менеджерах.")
+        # ❗️ОТМЕНЯЕМ фильтр по месяцу и берём все строки с непустым менеджером
+        if "Менеджер" not in df.columns:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Колонка 'Менеджер' не найдена в данных.")
             return
 
-        # 👇 Выводим список менеджеров для диагностики
-        manager_values = current_month_df["Менеджер"].dropna().unique()
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"🧾 Менеджеры в данных:\n{manager_values}")
+        filtered = df[df["Менеджер"].notna()]
 
-        # Агрегируем по менеджерам
-        manager_stats = current_month_df.dropna(subset=["Менеджер"]).groupby("Менеджер").agg({
+        if filtered.empty:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет строк с указанными менеджерами.")
+            return
+
+        # Диагностика — выводим менеджеров
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"🧾 Менеджеры в данных:\n{filtered['Менеджер'].unique()}")
+
+        # Считаем по менеджерам
+        manager_stats = filtered.groupby("Менеджер").agg({
             "Выручка бар": "sum",
             "Выручка кухня": "sum",
             "Ср. чек общий": "mean",
@@ -180,7 +184,7 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"🧪 TOP:\n{top_manager.to_string()}")
 
-        if top_manager.shape[0] == 0 or top_manager.index.size == 0:
+        if top_manager.empty:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Не удалось определить лучшего менеджера.")
             return
 
@@ -190,7 +194,7 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         avg_depth = top_manager["Ср. поз чек общий"].values[0] / 10
 
         message = (
-            f"🏆 Лучший менеджер за {now.strftime('%B %Y')}:\n\n"
+            f"🏆 Лучший менеджер по данным:\n\n"
             f"👤 {name}\n"
             f"📊 Выручка: {format_ruble(total)}\n"
             f"🧾 Ср. чек: {format_ruble(avg_check)}\n"
@@ -216,12 +220,12 @@ if __name__ == "__main__":
     print("⏰ Бот запущен. Отчёт будет в 9:30 по Калининграду")
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    app.add_handler(CommandHandler("analyze", analyze_command))  # Команда отчёта по последнему дню
-    app.add_handler(CommandHandler("forecast", forecast_command))  # Прогноз по месяцу
-    app.add_handler(CommandHandler("managers", managers_command))  # Лучший менеджер
+    app.add_handler(CommandHandler("analyze", analyze_command))
+    app.add_handler(CommandHandler("forecast", forecast_command))
+    app.add_handler(CommandHandler("managers", managers_command))
 
-    scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")  # Планировщик по времени
-    scheduler.add_job(job, trigger="cron", hour=9, minute=30)  # Ежедневно в 9:30
-    threading.Thread(target=scheduler.start).start()  # Отдельный поток для расписания
+    scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
+    scheduler.add_job(job, trigger="cron", hour=9, minute=30)
+    threading.Thread(target=scheduler.start).start()
 
-    app.run_polling()  # Запускаем бот в режиме ожидания команд
+    app.run_polling()
