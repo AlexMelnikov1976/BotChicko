@@ -1,32 +1,29 @@
-import os  # Для работы с переменными окружения
-import json  # Для загрузки JSON-ключей Google
-import calendar  # Для определения количества дней в месяце
-import threading  # Для параллельного запуска задач
-import pandas as pd  # Для анализа и обработки таблиц
-import matplotlib.pyplot as plt  # Импортирован, но не используется
-import gspread  # Для подключения к Google Sheets
-import requests  # Для отправки HTTP-запросов (Telegram API)
-from datetime import datetime, timedelta  # Работа с датами и временем
-from dotenv import load_dotenv  # Для загрузки .env файла
-from google.oauth2 import service_account  # Авторизация в Google API
-from apscheduler.schedulers.blocking import BlockingScheduler  # Планировщик задач
-from telegram import Update  # Telegram update object
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes  # Telegram bot API
+import os
+import json
+import calendar
+import threading
+import pandas as pd
+import gspread
+import requests
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
+from google.oauth2 import service_account
+from apscheduler.schedulers.blocking import BlockingScheduler
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # === Настройки ===
-load_dotenv()  # Загружаем переменные из .env файла
-SHEET_ID = "1SHHKKcgXgbzs_AyBQJpyHx9zDauVz6iR9lz1V7Q3hyw"  # ID Google-таблицы
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")  # Telegram токен
-CHAT_ID = os.getenv("CHAT_ID")  # Telegram chat ID
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]  # Права только на чтение
+load_dotenv()
+SHEET_ID = "1SHHKKcgXgbzs_AyBQJpyHx9zDauVz6iR9lz1V7Q3hyw"
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 
-# Авторизация в Google API
 CREDS = service_account.Credentials.from_service_account_info(
     json.loads(os.environ['GOOGLE_CREDENTIALS']),
     scopes=SCOPES
 )
 
-# Форматирует число как рубли
 def format_ruble(val, decimals=0):
     if pd.isna(val):
         return "—"
@@ -35,19 +32,15 @@ def format_ruble(val, decimals=0):
         formatted = formatted.replace(".00", "")
     return formatted
 
-# Отправка сообщения в Telegram
 def send_to_telegram(message: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     data = {"chat_id": CHAT_ID, "text": message}
     requests.post(url, data=data)
 
-# Загрузка и подготовка данных из Google Sheets
 def read_data():
-    print("Читаем таблицу...")
     gc = gspread.authorize(CREDS)
     sheet = gc.open_by_key(SHEET_ID).sheet1
     df = pd.DataFrame(sheet.get_all_records())
-    print("Столбцы из Google Sheets:", list(df.columns))
 
     if "Дата" not in df.columns:
         return pd.DataFrame()
@@ -63,11 +56,8 @@ def read_data():
 
     df["Дата"] = pd.to_datetime(df["Дата"], dayfirst=True, errors="coerce")
     df = df.dropna(subset=["Дата"])
-    print("Уникальные даты после парсинга:", df["Дата"].unique())
-    print(f"Успешно прочитали! {df.shape}")
     return df
 
-# Анализ показателей за последний день
 def analyze(df):
     last_date = df["Дата"].max()
     if pd.isna(last_date):
@@ -101,7 +91,6 @@ def analyze(df):
         f"🍔 Фудкост: {foodcost}% {foodcost_emoji}"
     )
 
-# Обработка команды /analyze
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
@@ -112,7 +101,6 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
-# Обработка команды /forecast
 async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
@@ -147,7 +135,6 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
-# Обработка команды /managers
 async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
@@ -177,33 +164,39 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }).fillna(0)
 
         manager_stats["Общая выручка"] = manager_stats["Выручка бар"] + manager_stats["Выручка кухня"]
-        top_manager = manager_stats.sort_values("Общая выручка", ascending=False).head(1)
+        manager_stats["Глубина"] = manager_stats["Ср. поз чек общий"] / 10
 
-        if top_manager.empty:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Не удалось определить лучшего менеджера.")
-            return
+        # Расчёт рейтинга по весам: 50% ср. чек, 30% выручка, 20% глубина
+        max_values = {
+            "Ср. чек общий": manager_stats["Ср. чек общий"].max(),
+            "Общая выручка": manager_stats["Общая выручка"].max(),
+            "Глубина": manager_stats["Глубина"].max()
+        }
 
-        name = str(top_manager.index[0])
-        total = top_manager["Общая выручка"].values[0]
-        avg_check = top_manager["Ср. чек общий"].values[0]
-        avg_depth = top_manager["Ср. поз чек общий"].values[0] / 10
-
-        period = now.strftime('%B %Y')
-
-        message = (
-            f"🏆 Лучший менеджер за {period}:\n\n"
-            f"👤 {name}\n"
-            f"📊 Выручка: {format_ruble(total)}\n"
-            f"🧾 Ср. чек: {format_ruble(avg_check)}\n"
-            f"📏 Глубина чека: {avg_depth:.1f}"
+        manager_stats["Оценка"] = (
+            (manager_stats["Ср. чек общий"] / max_values["Ср. чек общий"]) * 0.5 +
+            (manager_stats["Общая выручка"] / max_values["Общая выручка"]) * 0.3 +
+            (manager_stats["Глубина"] / max_values["Глубина"]) * 0.2
         )
 
+        manager_stats = manager_stats.sort_values("Оценка", ascending=False)
+        best = manager_stats.iloc[0]
+
+        message = f"📅 Период: {now.strftime('%B %Y')}\n\n"
+        for name, row in manager_stats.iterrows():
+            message += (
+                f"👤 {name}\n"
+                f"📊 Выручка: {format_ruble(row['Общая выручка'])}\n"
+                f"🧾 Ср. чек: {format_ruble(row['Ср. чек общий'])}\n"
+                f"📏 Глубина: {row['Глубина']:.1f}\n\n"
+            )
+
+        message += f"🏆 Победитель: {manager_stats.index[0]}"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
-# Планировщик для ежедневного отчёта
 def job():
     try:
         df = read_data()
@@ -212,9 +205,60 @@ def job():
     except Exception as e:
         send_to_telegram(f"❌ Ошибка: {str(e)}")
 
-# Точка входа
+def managers_job():
+    try:
+        df = read_data()
+        now = datetime.now()
+        filtered = df[
+            df["Менеджер"].notna() &
+            (df["Дата"].dt.year == now.year) &
+            (df["Дата"].dt.month == now.month)
+        ]
+
+        if filtered.empty:
+            send_to_telegram("⚠️ Нет данных о менеджерах за текущий месяц.")
+            return
+
+        manager_stats = filtered.groupby("Менеджер").agg({
+            "Выручка бар": "sum",
+            "Выручка кухня": "sum",
+            "Ср. чек общий": "mean",
+            "Ср. поз чек общий": "mean"
+        }).fillna(0)
+
+        manager_stats["Общая выручка"] = manager_stats["Выручка бар"] + manager_stats["Выручка кухня"]
+        manager_stats["Глубина"] = manager_stats["Ср. поз чек общий"] / 10
+
+        max_values = {
+            "Ср. чек общий": manager_stats["Ср. чек общий"].max(),
+            "Общая выручка": manager_stats["Общая выручка"].max(),
+            "Глубина": manager_stats["Глубина"].max()
+        }
+
+        manager_stats["Оценка"] = (
+            (manager_stats["Ср. чек общий"] / max_values["Ср. чек общий"]) * 0.5 +
+            (manager_stats["Общая выручка"] / max_values["Общая выручка"]) * 0.3 +
+            (manager_stats["Глубина"] / max_values["Глубина"]) * 0.2
+        )
+
+        manager_stats = manager_stats.sort_values("Оценка", ascending=False)
+        message = f"📅 Период: {now.strftime('%B %Y')}\n\n"
+        for name, row in manager_stats.iterrows():
+            message += (
+                f"👤 {name}\n"
+                f"📊 Выручка: {format_ruble(row['Общая выручка'])}\n"
+                f"🧾 Ср. чек: {format_ruble(row['Ср. чек общий'])}\n"
+                f"📏 Глубина: {row['Глубина']:.1f}\n\n"
+            )
+
+        message += f"🏆 Победитель: {manager_stats.index[0]}"
+        send_to_telegram(message)
+
+    except Exception as e:
+        send_to_telegram(f"❌ Ошибка (менеджеры): {str(e)}")
+
 if __name__ == "__main__":
-    print("⏰ Бот запущен. Отчёт будет в 9:30 по Калининграду")
+    print("⏰ Бот запущен. Отчёты в 9:30 по Калининграду")
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
     app.add_handler(CommandHandler("analyze", analyze_command))
@@ -223,6 +267,7 @@ if __name__ == "__main__":
 
     scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
     scheduler.add_job(job, trigger="cron", hour=9, minute=30)
+    scheduler.add_job(managers_job, trigger="cron", day_of_week="mon", hour=9, minute=30)
     threading.Thread(target=scheduler.start).start()
 
     app.run_polling()
