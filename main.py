@@ -144,7 +144,7 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
-async def best_manager_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
     try:
