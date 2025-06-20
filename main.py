@@ -162,16 +162,18 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Колонка 'Менеджер' не найдена в данных.")
             return
 
+        # Показываем уникальные значения "как есть"
+        raw_managers = df['Менеджер'].drop_duplicates().astype(str).head(10).to_list()
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"🔍 Значения менеджеров (сырьё):\n{raw_managers}")
+
         filtered = df[df["Менеджер"].notna()]
 
         if filtered.empty:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет строк с указанными менеджерами.")
             return
 
-        # Диагностика — выводим менеджеров
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"🧾 Менеджеры в данных:\n{filtered['Менеджер'].unique()}")
 
-        # Считаем по менеджерам
         manager_stats = filtered.groupby("Менеджер").agg({
             "Выручка бар": "sum",
             "Выручка кухня": "sum",
