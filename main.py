@@ -170,7 +170,7 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Не удалось определить лучшего менеджера.")
             return
 
-        name = top_manager.index[0]
+        name = str(top_manager.index[0])
         total = top_manager["Общая выручка"].values[0]
         avg_check = top_manager["Ср. чек общий"].values[0]
         avg_depth = top_manager["Ср. поз чек общий"].values[0] / 10
