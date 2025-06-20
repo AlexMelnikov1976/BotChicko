@@ -92,14 +92,14 @@ def analyze(df):
         .str.replace(",", ".")\
         .str.replace("%", "")\
         .str.strip()
-    foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean() * 100, 1)
+    foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean() / 100, 1)
 
     # --- Скидка: 0.172 → 17.2% (аналогично) ---
     discount_raw = today_df["Скидка общий, %"].astype(str)\
         .str.replace(",", ".")\
         .str.replace("%", "")\
         .str.strip()
-    discount = round(pd.to_numeric(discount_raw, errors="coerce").mean() * 100, 1)
+    discount = round(pd.to_numeric(discount_raw, errors="coerce").mean() / 100, 1)
 
     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
     foodcost_emoji = "🙂" if foodcost <= 23 else "🙁"
