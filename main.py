@@ -96,7 +96,7 @@ def analyze(df):
 
     return (
         f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
-        f"👤 Менеджер(ы): {managers_str}"\n"
+        f"👤 Менеджер(ы): {managers_str}\n"
         f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
         f"🧾 Ср.чек: {format_ruble(avg_check)} {avg_check_emoji}\n"
         f"📏 Глубина: {depth:.1f}\n"
