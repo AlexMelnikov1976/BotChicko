@@ -54,7 +54,7 @@ def read_data():
 
     # Очистка числовых данных
     for col in df.columns:
-        if col not in ["Дата", "Фудкост общий, %"]:
+        if col not in ["Дата", "Фудкост общий, %", "Менеджер"]:
             df[col] = (
                 df[col].astype(str)
                 .str.replace(",", ".")
