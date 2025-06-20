@@ -90,8 +90,13 @@ def analyze(df):
     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
     foodcost_emoji = "🙂" if foodcost <= 23 else "🙁"
 
+    # Определяем уникальных менеджеров за этот день
+    managers_today = today_df["Менеджер"].dropna().unique()
+    managers_str = ", ".join(managers_today) if len(managers_today) > 0 else "не указано"
+
     return (
         f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
+        f"👤 Менеджер(ы): {managers_str}"\n"
         f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
         f"🧾 Ср.чек: {format_ruble(avg_check)} {avg_check_emoji}\n"
         f"📏 Глубина: {depth:.1f}\n"
@@ -99,6 +104,7 @@ def analyze(df):
         f"📦 Доставка: {format_ruble(delivery)} ({delivery_share:.1f}%)\n"
         f"📊 Доля ЗП зала: {hall_share:.1f}%\n"
         f"🍔 Фудкост: {foodcost}% {foodcost_emoji}"
+        
     )
 
 # Команда /managers: сравнение менеджеров по ключевым метрикам
