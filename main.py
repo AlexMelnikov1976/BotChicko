@@ -175,6 +175,8 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         avg_check = top_manager["Ср. чек общий"].values[0]
         avg_depth = top_manager["Ср. поз чек общий"].values[0] / 10
 
+        print("TOP MANAGER:", name, total, avg_check, avg_depth)
+
         message = (
             f"🏆 Лучший менеджер за {now.strftime('%B %Y')}:\n\n"
             f"👤 {name}\n"
