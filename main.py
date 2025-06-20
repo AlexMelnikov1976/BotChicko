@@ -166,7 +166,6 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         manager_stats["Общая выручка"] = manager_stats["Выручка бар"] + manager_stats["Выручка кухня"]
         manager_stats["Глубина"] = manager_stats["Ср. поз чек общий"] / 10
 
-        # Расчёт рейтинга по весам: 50% ср. чек, 30% выручка, 20% глубина
         max_values = {
             "Ср. чек общий": manager_stats["Ср. чек общий"].max(),
             "Общая выручка": manager_stats["Общая выручка"].max(),
@@ -180,8 +179,6 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         manager_stats = manager_stats.sort_values("Оценка", ascending=False)
-        best = manager_stats.iloc[0]
-
         message = f"📅 Период: {now.strftime('%B %Y')}\n\n"
         for name, row in manager_stats.iterrows():
             message += (
