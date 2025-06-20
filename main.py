@@ -166,7 +166,12 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         raw_managers = df['Менеджер'].drop_duplicates().astype(str).head(10).to_list()
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"🔍 Значения менеджеров (сырьё):\n{raw_managers}")
 
-        filtered = df[df["Менеджер"].notna()]
+        now = datetime.now()
+        filtered = df[
+            df["Менеджер"].notna() &
+            (df["Дата"].dt.year == now.year) &
+            (df["Дата"].dt.month == now.month)
+]
 
         if filtered.empty:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет строк с указанными менеджерами.")
