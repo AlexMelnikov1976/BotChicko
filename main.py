@@ -130,9 +130,9 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         # Очистка и фильтрация скидки
-        # Очищаем значения скидки так же, как Фудкост
-        discount_raw = filtered["Скидка общий, %"].astype(str).str.replace(",", ".").str.replace("%", "").str.strip()
-        filtered["Скидка общий, %"] = pd.to_numeric(discount_raw, errors="coerce")
+        filtered["Скидка общий, %"] = filtered["Скидка общий, %"].astype(str).str.replace(",", ".").str.replace("%", "").str.strip()
+        filtered["Скидка общий, %"] = pd.to_numeric(filtered["Скидка общий, %"], errors="coerce")
+        filtered = filtered[filtered["Скидка общий, %"] < 100]
 
         manager_stats = filtered.groupby("Менеджер").agg({
             "Выручка бар": "sum",
