@@ -178,6 +178,7 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         top_manager = manager_stats.sort_values("Общая выручка", ascending=False).head(1)
 
         # Защита от ложных пустых значений
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"🧪 TOP:\n{top_manager.to_string()}")
         if top_manager.shape[0] == 0 or top_manager.index.size == 0:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Не удалось определить лучшего менеджера.")
             return
