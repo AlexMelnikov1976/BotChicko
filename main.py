@@ -173,11 +173,11 @@ async def best_manager_command(update: Update, context: ContextTypes.DEFAULT_TYP
         avg_check = top_manager["\u0421р. чек общий"].values[0]
         avg_depth = top_manager["\u0421р. поз чек общий"].values[0] / 10
 
-       message = (
-           f"🏆 Лучший менеджер за {now.strftime('%B %Y')}:\n\n"
-           f"👤 {name}\n"
-           f"📊 Выручка: {format_ruble(total)}\n"
-           f"🧾 Ср. чек: {format_ruble(avg_check)}\n"
-           f"📏 Глубина чека: {avg_depth:.1f}"
+        message = (
+            f"🏆 Лучший менеджер за {now.strftime('%B %Y')}:\n\n"
+            f"👤 {name}\n"
+            f"📊 Выручка: {format_ruble(total)}\n"
+            f"🧾 Ср. чек: {format_ruble(avg_check)}\n"
+            f"📏 Глубина чека: {avg_depth:.1f}"
 )
 
