@@ -179,5 +179,11 @@ async def best_manager_command(update: Update, context: ContextTypes.DEFAULT_TYP
             f"📊 Выручка: {format_ruble(total)}\n"
             f"🧾 Ср. чек: {format_ruble(avg_check)}\n"
             f"📏 Глубина чека: {avg_depth:.1f}"
-)
+        )
+
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+
+    except Exception as e:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
+
 
