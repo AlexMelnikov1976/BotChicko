@@ -156,12 +156,12 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет данных о менеджерах.")
             return
 
-        manager_stats = current_month_df.groupby("Менеджер").agg({
+        manager_stats = current_month_df.dropna(subset=["Менеджер"]).groupby("Менеджер").agg({
             "Выручка бар": "sum",
             "Выручка кухня": "sum",
             "Ср. чек общий": "mean",
             "Ср. поз чек общий": "mean"
-        })
+        }).fillna(0)
 
         manager_stats["Общая выручка"] = manager_stats["Выручка бар"] + manager_stats["Выручка кухня"]
         top_manager = manager_stats.sort_values("Общая выручка", ascending=False).head(1)
