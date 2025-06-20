@@ -155,6 +155,9 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
     try:
+        print("📥 /managers команду получили!")
+        await context.bot.send_message(chat_id=update.effective_chat.id, text="📥 Команда получена!")
+
         df = read_data()
         now = datetime.now()
         current_month_df = df[(df["Дата"].dt.year == now.year) & (df["Дата"].dt.month == now.month)]
