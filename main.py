@@ -202,7 +202,7 @@ if __name__ == "__main__":
 
     app.add_handler(CommandHandler("analyze", analyze_command))
     app.add_handler(CommandHandler("forecast", forecast_command))
-    app.add_handler(CommandHandler("best_manager", best_manager_command))
+    app.add_handler(CommandHandler("managers", managers_command))
 
     scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
     scheduler.add_job(job, trigger="cron", hour=9, minute=30)
