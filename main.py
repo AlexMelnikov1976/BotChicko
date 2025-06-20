@@ -52,7 +52,6 @@ def read_data():
     if "Дата" not in df.columns:
         return pd.DataFrame()
 
-    # Очистка числовых данных
     for col in df.columns:
         if col not in ["Дата", "Фудкост общий, %", "Менеджер"]:
             df[col] = (
@@ -62,8 +61,8 @@ def read_data():
             )
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    df["Дата"] = pd.to_datetime(df["Дата"], dayfirst=True, errors="coerce")  # Преобразуем дату
-    df = df.dropna(subset=["Дата"])  # Удаляем строки без даты
+    df["Дата"] = pd.to_datetime(df["Дата"], dayfirst=True, errors="coerce")
+    df = df.dropna(subset=["Дата"])
     print("Уникальные даты после парсинга:", df["Дата"].unique())
     print(f"Успешно прочитали! {df.shape}")
     return df
@@ -159,7 +158,6 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Колонка 'Менеджер' не найдена в данных.")
             return
 
-        # 🔽 Фильтрация только по текущему месяцу и непустым менеджерам
         now = datetime.now()
         filtered = df[
             df["Менеджер"].notna() &
@@ -204,3 +202,27 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
+
+# Планировщик для ежедневного отчёта
+def job():
+    try:
+        df = read_data()
+        report = analyze(df)
+        send_to_telegram(report)
+    except Exception as e:
+        send_to_telegram(f"❌ Ошибка: {str(e)}")
+
+# Точка входа
+if __name__ == "__main__":
+    print("⏰ Бот запущен. Отчёт будет в 9:30 по Калининграду")
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+
+    app.add_handler(CommandHandler("analyze", analyze_command))
+    app.add_handler(CommandHandler("forecast", forecast_command))
+    app.add_handler(CommandHandler("managers", managers_command))
+
+    scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
+    scheduler.add_job(job, trigger="cron", hour=9, minute=30)
+    threading.Thread(target=scheduler.start).start()
+
+    app.run_polling()
