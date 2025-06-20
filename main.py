@@ -70,37 +70,39 @@ def read_data():
 
 # Анализ показателей за последний день
 
-def analyze(df):
+# --- Анализ показателей за последний день ---
+    def analyze(df):
     last_date = df["Дата"].max()
     if pd.isna(last_date):
         return "📅 Дата: не определена\n\n⚠️ Нет доступных данных"
 
     today_df = df[df["Дата"] == last_date]
-    bar = round(today_df["Выручка бар"].sum())
-    kitchen = round(today_df["Выручка кухня"].sum())
-    total = bar + kitchen
-    avg_check = round(today_df["Ср. чек общий"].mean())
-    depth = round(today_df["Ср. поз чек общий"].mean() / 10, 1)
-    hall_income = round(today_df["Зал начислено"].sum())
-    delivery = round(today_df["Выручка доставка "].sum())
-    hall_share = (hall_income / total * 100) if total else 0
-    delivery_share = (delivery / total * 100) if total else 0
+    # ... (всё, что у тебя было)
 
+    # --- Расчёт foodcost (уже был) ---
     foodcost_raw = today_df["Фудкост общий, %"].astype(str).str.replace(",", ".").str.replace("%", "").str.strip()
-    foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean() / 100, 1)
+    foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean(), 1)
+
+    # --- Новый блок: расчёт скидки ---
+    discount_raw = today_df["Скидка общий, %"].astype(str).str.replace(",", ".").str.replace("%", "").str.strip()
+    discount = round(pd.to_numeric(discount_raw, errors="coerce").mean(), 1)
 
     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
     foodcost_emoji = "🙂" if foodcost <= 23 else "🙁"
+    managers_today = today_df["Менеджер"].dropna().unique()
+    managers_str = ", ".join(managers_today) if len(managers_today) > 0 else "не указано"
 
     return (
         f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
+        f"👤 Менеджер(ы): {managers_str}\n"
         f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
         f"🧾 Ср.чек: {format_ruble(avg_check)} {avg_check_emoji}\n"
         f"📏 Глубина: {depth:.1f}\n"
         f"🪑 ЗП зал: {format_ruble(hall_income)}\n"
         f"📦 Доставка: {format_ruble(delivery)} ({delivery_share:.1f}%)\n"
         f"📊 Доля ЗП зала: {hall_share:.1f}%\n"
-        f"🍔 Фудкост: {foodcost}% {foodcost_emoji}"
+        f"🍔 Фудкост: {foodcost}% {foodcost_emoji}\n"
+        f"💸 Скидка: {discount}%"
     )
 
 # Обработка команды /analyze
