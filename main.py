@@ -63,64 +63,95 @@ def read_data():
     print(f"Успешно прочитали! {df.shape}")
     return df
 
-def analyze_all_managers(df):
-    df["Дата"] = pd.to_datetime(df["Дата"], dayfirst=True, errors="coerce")
-    df = df.dropna(subset=["Дата"])
+def analyze(df):
+    last_date = df["Дата"].max()
+    if pd.isna(last_date):
+        return "📅 Дата: не определена\n\n⚠️ Нет доступных данных"
 
-    now = datetime.now()
-    df_month = df[(df["Дата"].dt.year == now.year) & (df["Дата"].dt.month == now.month)]
-    df_month = df_month.dropna(subset=["Менеджер"])
+    today_df = df[df["Дата"] == last_date]
+    bar = round(today_df["Выручка бар"].sum())
+    kitchen = round(today_df["Выручка кухня"].sum())
+    total = bar + kitchen
+    avg_check = round(today_df["Ср. чек общий"].mean())
+    depth = round(today_df["Ср. поз чек общий"].mean() / 10, 1)
+    hall_income = round(today_df["Зал начислено"].sum())
+    delivery = round(today_df["Выручка доставка "].sum())
+    hall_share = (hall_income / total * 100) if total else 0
+    delivery_share = (delivery / total * 100) if total else 0
 
-    print("Уникальные менеджеры:", df_month["Менеджер"].unique())
+    # Обработка фудкоста: 0.225 → 22.5
+    foodcost_raw = today_df["Фудкост общий, %"].astype(str)\
+    .str.replace(",", ".")\
+    .str.replace("%", "")\
+    .str.strip()
 
-    df_month["Выручка"] = df_month["Выручка бар"] + df_month["Выручка кухня"]
+    foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean() / 100, 1)
 
-    grouped = df_month.groupby("Менеджер").agg({
-        "Выручка": "sum",
-        "Ср. чек общий": "mean",
-        "Ср. поз чек общий": "mean"
-    }).reset_index()
+    avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
+    foodcost_emoji = "🙂" if foodcost <= 23 else "🙁"
 
-    if grouped.empty:
-        return "⚠️ Нет данных для анализа менеджеров за текущий месяц."
+    return (
+        f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
+        f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
+        f"🧾 Ср.чек: {format_ruble(avg_check)} {avg_check_emoji}\n"
+        f"📏 Глубина: {depth:.1f}\n"
+        f"🪑 ЗП зал: {format_ruble(hall_income)}\n"
+        f"📦 Доставка: {format_ruble(delivery)} ({delivery_share:.1f}%)\n"
+        f"📊 Доля ЗП зала: {hall_share:.1f}%\n"
+        f"🍔 Фудкост: {foodcost}% {foodcost_emoji}"
+    )
 
-    max_revenue = grouped["Выручка"].max()
-    max_check = grouped["Ср. чек общий"].max()
-    max_depth = grouped["Ср. поз чек общий"].max()
-
-    grouped["Оценка"] = (
-        (grouped["Выручка"] / max_revenue) * 0.5 +
-        (grouped["Ср. чек общий"] / max_check) * 0.3 +
-        (grouped["Ср. поз чек общий"] / max_depth) * 0.2
-    ) * 100
-
-    grouped = grouped.round({"Выручка": 0, "Ср. чек общий": 0, "Ср. поз чек общий": 2, "Оценка": 1})
-    grouped = grouped.sort_values(by="Оценка", ascending=False).reset_index(drop=True)
-
-    lines = ["🏆 Рейтинг менеджеров за месяц:\n"]
-    for i, row in grouped.iterrows():
-        lines.append(
-            f"{i+1}. {row['Менеджер']} — 💸 {format_ruble(row['Выручка'])}, 🧾 {int(row['Ср. чек общий'])}₽, 📏 {row['Ср. поз чек общий']} → 🔥 {row['Оценка']}%"
-        )
-
-    best = grouped.iloc[0]
-    lines.append(f"\n🥇 Лучший менеджер: {best['Менеджер']} — {best['Оценка']}%")
-    return "\n".join(lines)
-
-async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
     try:
         df = read_data()
-        report = analyze_all_managers(df)
+        report = analyze(df)
         await context.bot.send_message(chat_id=update.effective_chat.id, text=report)
+    except Exception as e:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
+
+async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if str(update.effective_chat.id) != str(CHAT_ID):
+        return
+    try:
+        df = read_data()
+        now = datetime.now()
+        current_month_df = df[(df["Дата"].dt.year == now.year) & (df["Дата"].dt.month == now.month)]
+
+        if current_month_df.empty:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет данных за текущий месяц.")
+            return
+
+        # Расчёт по текущему месяцу
+        total_revenue_series = current_month_df["Выручка бар"] + current_month_df["Выручка кухня"]
+        salary_series = current_month_df["Начислено"]
+
+        avg_daily_revenue = total_revenue_series.mean()
+        avg_daily_salary = salary_series.mean()
+
+        days_in_month = calendar.monthrange(now.year, now.month)[1]
+
+        forecast_revenue = avg_daily_revenue * days_in_month
+        fixed_salaries = 600_000
+        forecast_salary = avg_daily_salary * days_in_month + fixed_salaries
+        labor_cost_share = (forecast_salary / forecast_revenue * 100) if forecast_revenue else 0
+
+        message = (
+            f"📅 Прогноз на {now.strftime('%B %Y')}:\n"
+            #f"📈 Средняя дневная выручка: {format_ruble(avg_daily_revenue)}\n"
+            f"📊 Выручка: {format_ruble(forecast_revenue)}\n"
+            f"🪑 ЗП: {format_ruble(forecast_salary)} (LC: {labor_cost_share:.1f}%)"
+        )
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
 def job():
     try:
         df = read_data()
-        report = analyze_all_managers(df)
+        report = analyze(df)
         send_to_telegram(report)
     except Exception as e:
         send_to_telegram(f"❌ Ошибка: {str(e)}")
@@ -129,7 +160,8 @@ if __name__ == "__main__":
     print("⏰ Бот запущен. Отчёт будет в 9:30 по Калининграду")
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    app.add_handler(CommandHandler("managers", managers_command))
+    app.add_handler(CommandHandler("analyze", analyze_command))
+    app.add_handler(CommandHandler("forecast", forecast_command))
 
     scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
     scheduler.add_job(job, trigger="cron", hour=9, minute=30)
