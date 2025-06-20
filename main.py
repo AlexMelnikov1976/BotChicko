@@ -87,23 +87,25 @@ def analyze(df):
     hall_share = (hall_income / total * 100) if total else 0
     delivery_share = (delivery / total * 100) if total else 0
 
-    # --- Фудкост ---
-    foodcost_raw = today_df["Фудкост общий, %"].astype(str).str.replace(",", ".").str.replace("%", "").str.strip()
-    foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean(), 1)
+    # --- Фудкост: 0.225 → 22.5% ---
+    foodcost_raw = today_df["Фудкост общий, %"].astype(str)\
+        .str.replace(",", ".")\
+        .str.replace("%", "")\
+        .str.strip()
+    foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean() * 100, 1)
 
-    # --- Скидка: берём первое валидное значение за день ---
-    discount_raw = today_df["Скидка общий, %"].astype(str).str.replace(",", ".").str.replace("%", "").str.strip()
-    discounts = pd.to_numeric(discount_raw, errors="coerce")
-    discount = discounts[discounts.notna()].iloc[0] if discounts.notna().any() else 0
+    # --- Скидка: 0.172 → 17.2% (аналогично) ---
+    discount_raw = today_df["Скидка общий, %"].astype(str)\
+        .str.replace(",", ".")\
+        .str.replace("%", "")\
+        .str.strip()
+    discount = round(pd.to_numeric(discount_raw, errors="coerce").mean() * 100, 1)
 
     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
     foodcost_emoji = "🙂" if foodcost <= 23 else "🙁"
-    managers_today = today_df["Менеджер"].dropna().unique()
-    managers_str = ", ".join(managers_today) if len(managers_today) > 0 else "не указано"
 
     return (
         f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
-        f"👤 Менеджер(ы): {managers_str}\n"
         f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
         f"🧾 Ср.чек: {format_ruble(avg_check)} {avg_check_emoji}\n"
         f"📏 Глубина: {depth:.1f}\n"
@@ -113,6 +115,7 @@ def analyze(df):
         f"🍔 Фудкост: {foodcost}% {foodcost_emoji}\n"
         f"💸 Скидка: {discount}%"
     )
+
 
 
 # Обработка команды /analyze
