@@ -71,26 +71,26 @@ def read_data():
 # Анализ показателей за последний день
 
 # --- Анализ показателей за последний день ---
-    def analyze(df):
-    last_date = df["Дата"].max()
-    if pd.isna(last_date):
+ def analyze(df):
+     last_date = df["Дата"].max()
+     if pd.isna(last_date):
         return "📅 Дата: не определена\n\n⚠️ Нет доступных данных"
 
-    today_df = df[df["Дата"] == last_date]
+     today_df = df[df["Дата"] == last_date]
     # ... (всё, что у тебя было)
 
     # --- Расчёт foodcost (уже был) ---
-    foodcost_raw = today_df["Фудкост общий, %"].astype(str).str.replace(",", ".").str.replace("%", "").str.strip()
-    foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean(), 1)
+     foodcost_raw = today_df["Фудкост общий, %"].astype(str).str.replace(",", ".").str.replace("%", "").str.strip()
+     foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean(), 1)
 
     # --- Новый блок: расчёт скидки ---
-    discount_raw = today_df["Скидка общий, %"].astype(str).str.replace(",", ".").str.replace("%", "").str.strip()
-    discount = round(pd.to_numeric(discount_raw, errors="coerce").mean(), 1)
+     discount_raw = today_df["Скидка общий, %"].astype(str).str.replace(",", ".").str.replace("%", "").str.strip()
+     discount = round(pd.to_numeric(discount_raw, errors="coerce").mean(), 1)
 
-    avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
-    foodcost_emoji = "🙂" if foodcost <= 23 else "🙁"
-    managers_today = today_df["Менеджер"].dropna().unique()
-    managers_str = ", ".join(managers_today) if len(managers_today) > 0 else "не указано"
+     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
+     foodcost_emoji = "🙂" if foodcost <= 23 else "🙁"
+     managers_today = today_df["Менеджер"].dropna().unique()
+     managers_str = ", ".join(managers_today) if len(managers_today) > 0 else "не указано"
 
     return (
         f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
