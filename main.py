@@ -217,16 +217,16 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         manager_stats = manager_stats.sort_values("Оценка", ascending=False)
         message = f"📅 Период: {now.strftime('%B %Y')}\n\n"
+        
         for name, row in manager_stats.iterrows():
-    discount_percent = round(row['Скидка общий, %'] / 100, 1)
-    message += (
-        f"👤 {name}\n"
-        f"📊 Выручка: {format_ruble(row['Общая выручка'])}\n"
-        f"🧾 Ср. чек: {format_ruble(row['Ср. чек общий'])}\n"
-        f"📏 Глубина: {row['Глубина']:.1f}\n"
-        f"💸 Скидка: {discount_percent}%\n\n"
-    )
-
+            discount_percent = round(row['Скидка общий, %'] / 100, 1)
+            message += (
+                f"👤 {name}\n"
+                f"📊 Выручка: {format_ruble(row['Общая выручка'])}\n"
+                f"🧾 Ср. чек: {format_ruble(row['Ср. чек общий'])}\n"
+                f"📏 Глубина: {row['Глубина']:.1f}\n"
+                f"💸 Скидка: {discount_percent}%\n\n"
+        )
 
         message += f"🏆 Победитель: {manager_stats.index[0]}"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
