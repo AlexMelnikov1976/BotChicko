@@ -52,7 +52,6 @@ def read_data():
     if "Дата" not in df.columns:
         return pd.DataFrame()
 
-    # Очистка числовых данных
     for col in df.columns:
         if col not in ["Дата", "Фудкост общий, %", "Менеджер"]:
             df[col] = (
@@ -62,8 +61,8 @@ def read_data():
             )
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
-    df["Дата"] = pd.to_datetime(df["Дата"], dayfirst=True, errors="coerce")  # Преобразуем дату
-    df = df.dropna(subset=["Дата"])  # Удаляем строки без даты
+    df["Дата"] = pd.to_datetime(df["Дата"], dayfirst=True, errors="coerce")
+    df = df.dropna(subset=["Дата"])
     print("Уникальные даты после парсинга:", df["Дата"].unique())
     print(f"Успешно прочитали! {df.shape}")
     return df
@@ -153,31 +152,22 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
     try:
-        await context.bot.send_message(chat_id=update.effective_chat.id, text="📥 Команда получена!")
-
         df = read_data()
 
-        # ❗️ОТМЕНЯЕМ фильтр по месяцу и берём все строки с непустым менеджером
         if "Менеджер" not in df.columns:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Колонка 'Менеджер' не найдена в данных.")
             return
-
-        # Показываем уникальные значения "как есть"
-        raw_managers = df['Менеджер'].drop_duplicates().astype(str).head(10).to_list()
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"🔍 Значения менеджеров (сырьё):\n{raw_managers}")
 
         now = datetime.now()
         filtered = df[
             df["Менеджер"].notna() &
             (df["Дата"].dt.year == now.year) &
             (df["Дата"].dt.month == now.month)
-]
+        ]
 
         if filtered.empty:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет строк с указанными менеджерами.")
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет строк с указанными менеджерами за текущий месяц.")
             return
-
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"🧾 Менеджеры в данных:\n{filtered['Менеджер'].unique()}")
 
         manager_stats = filtered.groupby("Менеджер").agg({
             "Выручка бар": "sum",
@@ -189,8 +179,6 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         manager_stats["Общая выручка"] = manager_stats["Выручка бар"] + manager_stats["Выручка кухня"]
         top_manager = manager_stats.sort_values("Общая выручка", ascending=False).head(1)
 
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"🧪 TOP:\n{top_manager.to_string()}")
-
         if top_manager.empty:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Не удалось определить лучшего менеджера.")
             return
@@ -200,8 +188,10 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         avg_check = top_manager["Ср. чек общий"].values[0]
         avg_depth = top_manager["Ср. поз чек общий"].values[0] / 10
 
+        period = now.strftime('%B %Y')
+
         message = (
-            f"🏆 Лучший менеджер по данным:\n\n"
+            f"🏆 Лучший менеджер за {period}:\n\n"
             f"👤 {name}\n"
             f"📊 Выручка: {format_ruble(total)}\n"
             f"🧾 Ср. чек: {format_ruble(avg_check)}\n"
