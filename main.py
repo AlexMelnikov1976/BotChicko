@@ -20,7 +20,7 @@ CHAT_ID = os.getenv("CHAT_ID")
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 
 # Управляющая таблица с переменными расходами
-MANAGEMENT_SHEET_ID = "1EMk9ynqaMs9S-F0LjOEALEOd2kOPckDc"
+MANAGEMENT_SHEET_ID = "1nqpQ97D9rS2hPVQrrlbPKO5QG5RXvc936xvw6TSHnXc"
 MANAGEMENT_SHEET_NAME = "Лист1"
 
 CREDS = service_account.Credentials.from_service_account_info(
