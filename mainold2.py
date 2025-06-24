@@ -87,14 +87,12 @@ def analyze(df):
     hall_share = (hall_income / total * 100) if total else 0
     delivery_share = (delivery / total * 100) if total else 0
 
-    # --- Фудкост: 0.225 → 22.5% ---
     foodcost_raw = today_df["Фудкост общий, %"].astype(str)\
         .str.replace(",", ".")\
         .str.replace("%", "")\
         .str.strip()
     foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean() / 100, 1)
 
-    # --- Скидка: 0.172 → 17.2% (аналогично) ---
     discount_raw = today_df["Скидка общий, %"].astype(str)\
         .str.replace(",", ".")\
         .str.replace("%", "")\
@@ -104,8 +102,12 @@ def analyze(df):
     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
     foodcost_emoji = "🙂" if foodcost <= 23 else "🙁"
 
+    managers_today = today_df["Менеджер"].dropna().unique()
+    manager_name = managers_today[0] if len(managers_today) > 0 else "—"
+
     return (
         f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
+        f"👤 {manager_name}\n"
         f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
         f"🧾 Ср.чек: {format_ruble(avg_check)} {avg_check_emoji}\n"
         f"📏 Глубина: {depth:.1f}\n"
@@ -115,8 +117,6 @@ def analyze(df):
         f"🍔 Фудкост: {foodcost}% {foodcost_emoji}\n"
         f"💸 Скидка: {discount}%"
     )
-
-
 
 # Обработка команды /analyze
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -217,13 +217,15 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         manager_stats = manager_stats.sort_values("Оценка", ascending=False)
         message = f"📅 Период: {now.strftime('%B %Y')}\n\n"
+        
         for name, row in manager_stats.iterrows():
+            discount_percent = round(row['Скидка общий, %'] / 100, 1)
             message += (
                 f"👤 {name}\n"
                 f"📊 Выручка: {format_ruble(row['Общая выручка'])}\n"
                 f"🧾 Ср. чек: {format_ruble(row['Ср. чек общий'])}\n"
                 f"📏 Глубина: {row['Глубина']:.1f}\n"
-                f"💸 Скидка: {round(row['Скидка общий, %'], 1)}%\n\n"
+                f"💸 Скидка: {discount_percent}%\n\n"
             )
 
         message += f"🏆 Победитель: {manager_stats.index[0]}"
