@@ -1,0 +1,3 @@
+[submodule "Bot2"]
+	path = Bot2
+	url = https://github.com/AlexMelnikov1976/Bot2.git
