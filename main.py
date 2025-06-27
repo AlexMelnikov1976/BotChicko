@@ -1,5 +1,4 @@
 import os
-import json
 import calendar
 import threading
 import pandas as pd
@@ -7,7 +6,10 @@ import gspread
 import requests
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
-from google.oauth2 import service_account
+#from google.oauth2 import service_account   # Перенесено в utils.py
+#from google_api import get_management_value # Перенесено в utils.py
+from forecast import forecast                # Прогноз — импортируем из forecast.py
+from utils import get_management_percent, get_management_value, format_ruble # все, что нужно
 from apscheduler.schedulers.blocking import BlockingScheduler
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
@@ -23,56 +25,63 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 MANAGEMENT_SHEET_ID = "1nqpQ97D9rS2hPVQrrlbPKO5QG5RXvc936xvw6TSHnXc"
 MANAGEMENT_SHEET_NAME = "Лист1"
 
-CREDS = service_account.Credentials.from_service_account_info(
-    json.loads(os.environ['GOOGLE_CREDENTIALS']),
-    scopes=SCOPES
+SERVICE_ACCOUNT_FILE = 'fifth-medley-461515-h0-089884c74c28.json'
+#CREDS = service_account.Credentials.from_service_account_file(
+#    SERVICE_ACCOUNT_FILE,
+#    scopes=SCOPES
+#)
+
+# def format_ruble(val, decimals=0):
+#     if pd.isna(val):
+#         return "—"
+#     formatted = f"{val:,.{decimals}f}₽".replace(",", " ")
+#     if decimals == 0:
+#         formatted = formatted.replace(".00", "")
+#     return formatted
+
+# def send_to_telegram(message: str):
+#     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+#     data = {"chat_id": CHAT_ID, "text": message}
+#     requests.post(url, data=data)
+
+# def read_data():
+#     gc = gspread.authorize(CREDS)
+#     sheet = gc.open_by_key(SHEET_ID).sheet1
+#     df = pd.DataFrame(sheet.get_all_records())
+#     if "Дата" not in df.columns:
+#         return pd.DataFrame()
+#     for col in df.columns:
+#         if col not in ["Дата", "Фудкост общий, %", "Менеджер"]:
+#             df[col] = (
+#                 df[col].astype(str)
+#                 .str.replace(",", ".")
+#                 .str.replace(r"[^\d\.]", "", regex=True)
+#             )
+#             df[col] = pd.to_numeric(df[col], errors="coerce")
+#     df["Дата"] = pd.to_datetime(df["Дата"], dayfirst=True, errors="coerce")
+#     df = df.dropna(subset=["Дата"])
+#     return df
+
+# def get_management_foodcost():
+#     gc = gspread.authorize(CREDS)
+#     sheet = gc.open_by_key(MANAGEMENT_SHEET_ID).worksheet(MANAGEMENT_SHEET_NAME)
+#     df = pd.DataFrame(sheet.get_all_records())
+#     fc_row = df[df.iloc[:,0].astype(str).str.lower().str.strip() == "фудкост"]
+#     if not fc_row.empty:
+#         fc_percent = fc_row.iloc[0]["Процент"]
+#         try:
+#             return float(str(fc_percent).replace(",", "."))
+#         except Exception:
+#             return None
+#     return None
+
+# --- Импортируйте эти функции из utils.py ---
+from utils import (
+    read_data,             # Функция для чтения основной таблицы
+    send_to_telegram,      # Функция для отправки сообщения в телегу
+    format_ruble,          # Форматирование рубля
+    get_management_foodcost
 )
-
-def format_ruble(val, decimals=0):
-    if pd.isna(val):
-        return "—"
-    formatted = f"{val:,.{decimals}f}₽".replace(",", " ")
-    if decimals == 0:
-        formatted = formatted.replace(".00", "")
-    return formatted
-
-def send_to_telegram(message: str):
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    data = {"chat_id": CHAT_ID, "text": message}
-    requests.post(url, data=data)
-
-def read_data():
-    gc = gspread.authorize(CREDS)
-    sheet = gc.open_by_key(SHEET_ID).sheet1
-    df = pd.DataFrame(sheet.get_all_records())
-    if "Дата" not in df.columns:
-        return pd.DataFrame()
-    for col in df.columns:
-        if col not in ["Дата", "Фудкост общий, %", "Менеджер"]:
-            df[col] = (
-                df[col].astype(str)
-                .str.replace(",", ".")
-                .str.replace(r"[^\d\.]", "", regex=True)
-            )
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-    df["Дата"] = pd.to_datetime(df["Дата"], dayfirst=True, errors="coerce")
-    df = df.dropna(subset=["Дата"])
-    return df
-
-# Получение значения фудкоста (процент) из управляющей таблицы
-def get_management_foodcost():
-    gc = gspread.authorize(CREDS)
-    sheet = gc.open_by_key(MANAGEMENT_SHEET_ID).worksheet(MANAGEMENT_SHEET_NAME)
-    df = pd.DataFrame(sheet.get_all_records())
-    # Поиск строки 'Фудкост' и возврат значения из столбца 'Процент'
-    fc_row = df[df.iloc[:,0].astype(str).str.lower().str.strip() == "фудкост"]
-    if not fc_row.empty:
-        fc_percent = fc_row.iloc[0]["Процент"]
-        try:
-            return float(str(fc_percent).replace(",", "."))
-        except Exception:
-            return None
-    return None
 
 def analyze(df):
     last_date = df["Дата"].max()
@@ -127,45 +136,8 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     try:
         df = read_data()
-        now = datetime.now()
-        current_month_df = df[(df["Дата"].dt.year == now.year) & (df["Дата"].dt.month == now.month)]
-
-        if current_month_df.empty:
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет данных за текущий месяц.")
-            return
-
-        total_revenue_series = current_month_df["Выручка бар"] + current_month_df["Выручка кухня"]
-        salary_series = current_month_df["Начислено"]
-
-        avg_daily_revenue = total_revenue_series.mean()
-        avg_daily_salary = salary_series.mean()
-        days_in_month = calendar.monthrange(now.year, now.month)[1]
-
-        forecast_revenue = avg_daily_revenue * days_in_month
-        fixed_salaries = 600_000
-        forecast_salary = avg_daily_salary * days_in_month + fixed_salaries
-        labor_cost_share = (forecast_salary / forecast_revenue * 100) if forecast_revenue else 0
-
-        # Получение фудкоста из управляющей таблицы
-        foodcost_percent = get_management_foodcost()
-        if foodcost_percent is None:
-            fc_msg = "❗ Не удалось получить фудкост из управляющей таблицы."
-            forecast_var_expense = 0
-        else:
-            forecast_var_expense = forecast_revenue * (foodcost_percent / 100)
-            fc_msg = ""
-
-        var_expense_share = (forecast_var_expense / forecast_revenue * 100) if forecast_revenue else 0
-
-        message = (
-            f"📅 Прогноз на {now.strftime('%B %Y')}:\n"
-            f"📊 Выручка: {format_ruble(forecast_revenue)}\n"
-            f"🪑 ЗП: {format_ruble(forecast_salary)} (LC: {labor_cost_share:.1f}%)\n"
-            f"🍔 Перем.затраты (фудкост): {format_ruble(forecast_var_expense)} ({var_expense_share:.1f}%)\n"
-            f"{fc_msg}"
-        )
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
-
+        result = forecast(df)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=result)
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
@@ -253,7 +225,18 @@ def job():
         send_to_telegram(f"❌ Ошибка: {str(e)}")
 
 if __name__ == "__main__":
+    print("⏰ Тестовый запуск без Telegram\n")
+    df = read_data()
+    print("=== Анализ дня ===")
+    print(analyze(df))
+    print("=== Прогноз ===")
+    print(forecast(df))         # <--- ДОБАВИТЬ ЭТУ СТРОКУ
     print("⏰ Бот запущен. Отчёт будет в 9:30 по Калининграду")
+    send_to_telegram("⚡️ Проверка! Это тестовое сообщение из main.py")
+    # остальной код
+
+    send_to_telegram("⚡ Проверка! Это тестовое сообщение из main.py")
+
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
     app.add_handler(CommandHandler("analyze", analyze_command))

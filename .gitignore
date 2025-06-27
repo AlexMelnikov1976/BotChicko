@@ -1,4 +1,34 @@
-"credentials.json" 
-credentials.json 
-.env 
-.env 
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment variables & credentials
+.env
+*.json
+
+# IDE files
+.vscode/
+*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs, temporary and output files
+*.log
+*.bak
+*.tmp
+
+# Personal data files, results, test outputs
+*.xlsx
+*.png
+*.txt
+test_*.py
+check_*.py
+mainold*.py
+plot.png
+manager_plot.png
+
+# Other
+Bot2/

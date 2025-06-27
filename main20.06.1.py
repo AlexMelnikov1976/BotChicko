@@ -1,32 +1,35 @@
-import os  # Для работы с переменными окружения
-import json  # Для загрузки JSON-ключей Google
-import calendar  # Для определения количества дней в месяце
-import threading  # Для параллельного запуска задач
-import pandas as pd  # Для анализа и обработки таблиц
-import matplotlib.pyplot as plt  # Импортирован, но не используется
-import gspread  # Для подключения к Google Sheets
-import requests  # Для отправки HTTP-запросов (Telegram API)
-from datetime import datetime, timedelta  # Работа с датами и временем
-from dotenv import load_dotenv  # Для загрузки .env файла
-from google.oauth2 import service_account  # Авторизация в Google API
-from apscheduler.schedulers.blocking import BlockingScheduler  # Планировщик задач
-from telegram import Update  # Telegram update object
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes  # Telegram bot API
+import os
+import json
+import calendar
+import threading
+import pandas as pd
+import gspread
+import requests
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
+from google.oauth2 import service_account
+from google_api import get_management_value
+from apscheduler.schedulers.blocking import BlockingScheduler
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # === Настройки ===
-load_dotenv()  # Загружаем переменные из .env файла
-SHEET_ID = "1SHHKKcgXgbzs_AyBQJpyHx9zDauVz6iR9lz1V7Q3hyw"  # ID Google-таблицы
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")  # Telegram токен
-CHAT_ID = os.getenv("CHAT_ID")  # Telegram chat ID
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]  # Права только на чтение
+load_dotenv()
+SHEET_ID = "1SHHKKcgXgbzs_AyBQJpyHx9zDauVz6iR9lz1V7Q3hyw"
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
+SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
 
-# Авторизация в Google API
-CREDS = service_account.Credentials.from_service_account_info(
-    json.loads(os.environ['GOOGLE_CREDENTIALS']),
+# Управляющая таблица с переменными расходами
+MANAGEMENT_SHEET_ID = "1nqpQ97D9rS2hPVQrrlbPKO5QG5RXvc936xvw6TSHnXc"
+MANAGEMENT_SHEET_NAME = "Лист1"
+
+SERVICE_ACCOUNT_FILE = 'fifth-medley-461515-h0-089884c74c28.json'
+CREDS = service_account.Credentials.from_service_account_file(
+    SERVICE_ACCOUNT_FILE,
     scopes=SCOPES
 )
 
-# Форматирует число как рубли
 def format_ruble(val, decimals=0):
     if pd.isna(val):
         return "—"
@@ -35,39 +38,44 @@ def format_ruble(val, decimals=0):
         formatted = formatted.replace(".00", "")
     return formatted
 
-# Отправка сообщения в Telegram
 def send_to_telegram(message: str):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     data = {"chat_id": CHAT_ID, "text": message}
     requests.post(url, data=data)
 
-# Загрузка и подготовка данных из Google Sheets
 def read_data():
-    print("Читаем таблицу...")
     gc = gspread.authorize(CREDS)
     sheet = gc.open_by_key(SHEET_ID).sheet1
     df = pd.DataFrame(sheet.get_all_records())
-    print("Столбцы из Google Sheets:", list(df.columns))
-
     if "Дата" not in df.columns:
         return pd.DataFrame()
-
     for col in df.columns:
-        if col not in ["Дата", "Фудкост общий, %", "Менеджер", "Скидка общий, %"]:
+        if col not in ["Дата", "Фудкост общий, %", "Менеджер"]:
             df[col] = (
                 df[col].astype(str)
                 .str.replace(",", ".")
                 .str.replace(r"[^\d\.]", "", regex=True)
             )
             df[col] = pd.to_numeric(df[col], errors="coerce")
-
     df["Дата"] = pd.to_datetime(df["Дата"], dayfirst=True, errors="coerce")
     df = df.dropna(subset=["Дата"])
-    print("Уникальные даты после парсинга:", df["Дата"].unique())
-    print(f"Успешно прочитали! {df.shape}")
     return df
 
-# Анализ показателей за последний день
+# Получение значения фудкоста (процент) из управляющей таблицы
+def get_management_foodcost():
+    gc = gspread.authorize(CREDS)
+    sheet = gc.open_by_key(MANAGEMENT_SHEET_ID).worksheet(MANAGEMENT_SHEET_NAME)
+    df = pd.DataFrame(sheet.get_all_records())
+    # Поиск строки 'Фудкост' и возврат значения из столбца 'Процент'
+    fc_row = df[df.iloc[:,0].astype(str).str.lower().str.strip() == "фудкост"]
+    if not fc_row.empty:
+        fc_percent = fc_row.iloc[0]["Процент"]
+        try:
+            return float(str(fc_percent).replace(",", "."))
+        except Exception:
+            return None
+    return None
+
 def analyze(df):
     last_date = df["Дата"].max()
     if pd.isna(last_date):
@@ -84,30 +92,142 @@ def analyze(df):
     hall_share = (hall_income / total * 100) if total else 0
     delivery_share = (delivery / total * 100) if total else 0
 
-    foodcost_raw = today_df["Фудкост общий, %"].astype(str).str.replace(",", ".").str.replace("%", "").str.strip()
-    foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean(), 1)
+    foodcost_raw = today_df["Фудкост общий, %"].astype(str)\
+        .str.replace(",", ".")\
+        .str.replace("%", "")\
+        .str.strip()
+    foodcost = round(pd.to_numeric(foodcost_raw, errors="coerce").mean() / 100, 1)
+
+    discount_raw = today_df["Скидка общий, %"].astype(str)\
+        .str.replace(",", ".")\
+        .str.replace("%", "")\
+        .str.strip()
+    discount = round(pd.to_numeric(discount_raw, errors="coerce").mean() / 100, 1)
 
     avg_check_emoji = "🙂" if avg_check >= 1300 else "🙁"
     foodcost_emoji = "🙂" if foodcost <= 23 else "🙁"
 
-    # Определяем уникальных менеджеров за этот день
     managers_today = today_df["Менеджер"].dropna().unique()
-    managers_str = ", ".join(managers_today) if len(managers_today) > 0 else "не указано"
+    manager_name = managers_today[0] if len(managers_today) > 0 else "—"
 
     return (
         f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
-        f"👤 Менеджер(ы): {managers_str}\n"
+        f"👤 {manager_name}\n"
         f"📊 Выручка: {format_ruble(total)} (Бар: {format_ruble(bar)} + Кухня: {format_ruble(kitchen)})\n"
         f"🧾 Ср.чек: {format_ruble(avg_check)} {avg_check_emoji}\n"
         f"📏 Глубина: {depth:.1f}\n"
         f"🪑 ЗП зал: {format_ruble(hall_income)}\n"
         f"📦 Доставка: {format_ruble(delivery)} ({delivery_share:.1f}%)\n"
         f"📊 Доля ЗП зала: {hall_share:.1f}%\n"
-        f"🍔 Фудкост: {foodcost}% {foodcost_emoji}"
-        
+        f"🍔 Фудкост: {foodcost}% {foodcost_emoji}\n"
+        f"💸 Скидка: {discount}%"
     )
 
-# Команда /managers: сравнение менеджеров по ключевым метрикам
+# --- ПРОГНОЗ ---
+def forecast(df):
+    now = datetime.now()
+    current_month_df = df[(df["Дата"].dt.year == now.year) & (df["Дата"].dt.month == now.month)]
+    if current_month_df.empty:
+        return "⚠️ Нет данных за текущий месяц."
+
+    total_revenue_series = current_month_df["Выручка бар"] + current_month_df["Выручка кухня"]
+    salary_series = current_month_df["Начислено"]
+
+    avg_daily_revenue = total_revenue_series.mean()
+    avg_daily_salary = salary_series.mean()
+    days_in_month = calendar.monthrange(now.year, now.month)[1]
+
+    forecast_revenue = avg_daily_revenue * days_in_month
+
+    fixed_salaries = get_management_value("ЗП упр", "Сумма")
+    salary_msg = ""
+    if fixed_salaries is None:
+        fixed_salaries = 0
+        salary_msg = "❗ Не удалось получить фикс. зарплату из управляющей таблицы.\n"
+    forecast_salary = avg_daily_salary * days_in_month + fixed_salaries
+    labor_cost_share = (forecast_salary / forecast_revenue * 100) if forecast_revenue else 0
+
+    foodcost_percent = get_management_foodcost()
+    if foodcost_percent is None:
+        fc_msg = "❗ Не удалось получить фудкост из управляющей таблицы."
+        forecast_var_expense = 0
+    else:
+        forecast_var_expense = forecast_revenue * (foodcost_percent / 100)
+        fc_msg = ""
+
+    var_expense_share = (forecast_var_expense / forecast_revenue * 100) if forecast_revenue else 0
+
+    return (
+        f"📅 Прогноз на {now.strftime('%B %Y')}:\n"
+        f"📊 Выручка: {format_ruble(forecast_revenue)}\n"
+        f"🪑 ЗП: {format_ruble(forecast_salary)} (LC: {labor_cost_share:.1f}%)\n"
+        f"🍔 Перем.затраты (фудкост): {format_ruble(forecast_var_expense)} ({var_expense_share:.1f}%)\n"
+        f"{salary_msg}{fc_msg}"
+    )
+
+# === Обработка команды /forecast ===
+async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if str(update.effective_chat.id) != str(CHAT_ID):
+        return
+    try:
+        df = read_data()
+        now = datetime.now()
+        current_month_df = df[(df["Дата"].dt.year == now.year) & (df["Дата"].dt.month == now.month)]
+
+        if current_month_df.empty:
+            await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет данных за текущий месяц.")
+            return
+
+        total_revenue_series = current_month_df["Выручка бар"] + current_month_df["Выручка кухня"]
+        salary_series = current_month_df["Начислено"]
+
+        avg_daily_revenue = total_revenue_series.mean()
+        avg_daily_salary = salary_series.mean()
+        days_in_month = calendar.monthrange(now.year, now.month)[1]
+
+        forecast_revenue = avg_daily_revenue * days_in_month
+
+        fixed_salaries = get_management_value("ЗП упр", "Сумма")
+        salary_msg = ""
+        if fixed_salaries is None:
+            fixed_salaries = 0
+            salary_msg = "❗ Не удалось получить фикс. зарплату из управляющей таблицы.\n"
+        forecast_salary = avg_daily_salary * days_in_month + fixed_salaries
+        labor_cost_share = (forecast_salary / forecast_revenue * 100) if forecast_revenue else 0
+
+        foodcost_percent = get_management_foodcost()
+        if foodcost_percent is None:
+            fc_msg = "❗ Не удалось получить фудкост из управляющей таблицы."
+            forecast_var_expense = 0
+        else:
+            forecast_var_expense = forecast_revenue * (foodcost_percent / 100)
+            fc_msg = ""
+
+        var_expense_share = (forecast_var_expense / forecast_revenue * 100) if forecast_revenue else 0
+
+        message = (
+            f"📅 Прогноз на {now.strftime('%B %Y')}:\n"
+            f"📊 Выручка: {format_ruble(forecast_revenue)}\n"
+            f"🪑 ЗП: {format_ruble(forecast_salary)} (LC: {labor_cost_share:.1f}%)\n"
+            f"🍔 Перем.затраты (фудкост): {format_ruble(forecast_var_expense)} ({var_expense_share:.1f}%)\n"
+            f"{fc_msg}"
+        )
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+
+    except Exception as e:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
+
+# --- Остальные команды без изменений ---
+async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if str(update.effective_chat.id) != str(CHAT_ID):
+        return
+    try:
+        df = read_data()
+        report = analyze(df)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=report)
+    except Exception as e:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
+
 async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
@@ -129,11 +249,6 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет строк с указанными менеджерами за текущий месяц.")
             return
 
-        # Очистка и фильтрация скидки
-        filtered["Скидка общий, %"] = filtered["Скидка общий, %"].astype(str).str.replace(",", ".").str.replace("%", "").str.strip()
-        filtered["Скидка общий, %"] = pd.to_numeric(filtered["Скидка общий, %"], errors="coerce")
-        filtered = filtered[filtered["Скидка общий, %"] < 100]
-
         manager_stats = filtered.groupby("Менеджер").agg({
             "Выручка бар": "sum",
             "Выручка кухня": "sum",
@@ -148,26 +263,26 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         max_values = {
             "Ср. чек общий": manager_stats["Ср. чек общий"].max(),
             "Общая выручка": manager_stats["Общая выручка"].max(),
-            "Глубина": manager_stats["Глубина"].max(),
-            "Скидка общий, %": manager_stats["Скидка общий, %"].max()
+            "Глубина": manager_stats["Глубина"].max()
         }
 
         manager_stats["Оценка"] = (
             (manager_stats["Ср. чек общий"] / max_values["Ср. чек общий"]) * 0.5 +
-            (manager_stats["Глубина"] / max_values["Глубина"]) * 0.2 +
-            (manager_stats["Общая выручка"] / max_values["Общая выручка"]) * 0.2 -
-            (manager_stats["Скидка общий, %"] / max_values["Скидка общий, %"]) * 0.1
+            (manager_stats["Общая выручка"] / max_values["Общая выручка"]) * 0.3 +
+            (manager_stats["Глубина"] / max_values["Глубина"]) * 0.2
         )
 
         manager_stats = manager_stats.sort_values("Оценка", ascending=False)
         message = f"📅 Период: {now.strftime('%B %Y')}\n\n"
+        
         for name, row in manager_stats.iterrows():
+            discount_percent = round(row['Скидка общий, %'] / 100, 1)
             message += (
                 f"👤 {name}\n"
                 f"📊 Выручка: {format_ruble(row['Общая выручка'])}\n"
                 f"🧾 Ср. чек: {format_ruble(row['Ср. чек общий'])}\n"
                 f"📏 Глубина: {row['Глубина']:.1f}\n"
-                f"💸 Скидка: {round(row['Скидка общий, %'], 1)}%\n\n"
+                f"💸 Скидка: {discount_percent}%\n\n"
             )
 
         message += f"🏆 Победитель: {manager_stats.index[0]}"
@@ -176,21 +291,31 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
-# Планировщики отчётов
-scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
+# --- Планировщик для ежедневного отчёта ---
+def job():
+    try:
+        df = read_data()
+        report = analyze(df)
+        send_to_telegram(report)
+    except Exception as e:
+        send_to_telegram(f"❌ Ошибка: {str(e)}")
 
-# Ежедневный отчёт по последнему дню
-scheduler.add_job(lambda: send_to_telegram(analyze(read_data())), trigger="cron", hour=9, minute=30)
-
-# Еженедельный отчёт по менеджерам (понедельник)
-scheduler.add_job(lambda: asyncio.run(managers_command(Update(update_id=0, message=None), ContextTypes.DEFAULT_TYPE())), trigger="cron", day_of_week="mon", hour=9, minute=30)
-
-# Точка входа — запуск бота
 if __name__ == "__main__":
-    print("⏰ Бот запущен. Отчёты: ежедневно и по понедельникам в 9:30")
+    print("⏰ Тестовый запуск без Telegram\n")
+    df = read_data()
+    print("=== Анализ дня ===")
+    print(analyze(df))
+    print("\n=== Прогноз ===")
+    print(forecast(df))  # <<< ВЫВОД ПРОГНОЗА В КОНСОЛЬ
+    print("⏰ Бот запущен. Отчёт будет в 9:30 по Калининграду")
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
+    app.add_handler(CommandHandler("analyze", analyze_command))
+    app.add_handler(CommandHandler("forecast", forecast_command))
     app.add_handler(CommandHandler("managers", managers_command))
 
+    scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
+    scheduler.add_job(job, trigger="cron", hour=9, minute=30)
     threading.Thread(target=scheduler.start).start()
+
     app.run_polling()
