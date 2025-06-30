@@ -24,5 +24,6 @@ jobs:
 
       - name: Push to backup repository
         run: |
-          git remote add backup https://x-access-token:${{ secrets.BACKUP_TOKEN }}@github.com/AlexMelnikov1976/BotChickoBackup.git
+          git remote add backup https://x-access-token:${{ secrets.Tok }}@github.com/AlexMelnikov1976/BotChickoBackup.git
+
           git push --mirror backup
