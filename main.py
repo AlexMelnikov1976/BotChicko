@@ -14,7 +14,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# === Настройки ===
+# === Настройки ===4
 load_dotenv()
 SHEET_ID = "1SHHKKcgXgbzs_AyBQJpyHx9zDauVz6iR9lz1V7Q3hyw"
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
