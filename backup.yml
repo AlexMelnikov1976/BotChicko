@@ -1,0 +1,28 @@
+name: GitHub Auto Backup
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: '0 3 * * *' # ежедневно в 03:00 UTC (по Москве это 06:00)
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # нужно для полного зеркалирования
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "actions@github.com"
+
+      - name: Push to backup repo
+        run: |
+          git remote add backup https://x-access-token:${{ secrets.BACKUP_TOKEN }}@github.com/AlexMelnikov1976/BotChickoBackUp.git
+          git push --mirror backup
