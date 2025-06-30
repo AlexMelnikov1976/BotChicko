@@ -154,7 +154,7 @@ def forecast(df):
         f"🪑 ЗП: {format_ruble(forecast_salary)} (LC: {labor_cost_share:.1f}%)\n"
         f"🍔 Фудкост: {format_ruble(forecast_foodcost)} ({foodcost_month/10 :.1f}%)\n"
         f"💼 Франшиза: {format_ruble(forecast_franchise)} ({var_expense_share:.1f}%)\n"
-        f"📉 Списание: {format_ruble(forecast_writeoff)} ({wo_share/10:.1f}%)\n"
+        f"📉 Списание: {format_ruble(forecast_writeoff)} ({wo_share:.1f}%)\n"
         f"🧹 Хозы: {format_ruble(forecast_hozy)} ({hozy_share:.1f}%)\n"
         f"🚚 Доставка: {format_ruble(forecast_delivery_expense)} ({delivery_percent if delivery_percent is not None else '-'}%)\n"
         f"🏦 Эквайринг: {format_ruble(forecast_acquiring)} ({acquiring_percent/10:.1f}%)\n"
