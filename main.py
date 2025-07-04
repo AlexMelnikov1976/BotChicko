@@ -200,7 +200,7 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message = f"📅 Период: {now.strftime('%B %Y')}\n\n"
         
         for name, row in manager_stats.iterrows():
-            discount_percent = round(row['Скидка общий, %'] / 100, 1)
+            discount_percent = round(row['Скидка общий, %'] / 10, 1)
             message += (
                 f"👤 {name}\n"
                 f"📊 Выручка: {format_ruble(row['Общая выручка'])}\n"
