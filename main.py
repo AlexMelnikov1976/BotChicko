@@ -235,7 +235,7 @@ if __name__ == "__main__":
     send_to_telegram("⚡️ Проверка! Это тестовое сообщение из main.py")
     # остальной код
 
-    send_to_telegram("⚡ Проверка! Это тестовое сообщение из main.py")
+    #send_to_telegram("⚡ Проверка! Это тестовое сообщение из main.py")
 
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
