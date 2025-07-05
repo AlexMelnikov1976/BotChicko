@@ -247,7 +247,7 @@ if __name__ == "__main__":
 
     #send_to_telegram("⚡ Проверка! Это тестовое сообщение из main.py")
 
-    ##app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
     app.add_handler(CommandHandler("analyze", analyze_command))
     app.add_handler(CommandHandler("forecast", forecast_command))
