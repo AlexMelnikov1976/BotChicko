@@ -239,22 +239,22 @@ if __name__ == "__main__":
     df = read_data()
     print("=== Анализ дня ===")
     print(analyze(df))
-    ##print("=== Прогноз ===")
-    ##print(forecast(df))         # <--- ДОБАВИТЬ ЭТУ СТРОКУ
-    ##print("⏰ Бот запущен. Отчёт будет в 9:30 по Калининграду")
-    ##send_to_telegram("⚡️ Перезапуск")
+    print("=== Прогноз ===")
+    print(forecast(df))         # <--- ДОБАВИТЬ ЭТУ СТРОКУ
+    print("⏰ Бот запущен. Отчёт будет в 9:30 по Калининграду")
+    send_to_telegram("⚡️ Перезапуск")
     # остальной код
 
     #send_to_telegram("⚡ Проверка! Это тестовое сообщение из main.py")
 
     ##app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    ##app.add_handler(CommandHandler("analyze", analyze_command))
-    ##app.add_handler(CommandHandler("forecast", forecast_command))
-    ##app.add_handler(CommandHandler("managers", managers_command))
+    app.add_handler(CommandHandler("analyze", analyze_command))
+    app.add_handler(CommandHandler("forecast", forecast_command))
+    app.add_handler(CommandHandler("managers", managers_command))
 
-    ##scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
-    ##scheduler.add_job(job, trigger="cron", hour=9, minute=30)
-    ##threading.Thread(target=scheduler.start).start()
+    scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
+    scheduler.add_job(job, trigger="cron", hour=9, minute=30)
+    threading.Thread(target=scheduler.start).start()
 
-    ##app.run_polling()
+    app.run_polling()
