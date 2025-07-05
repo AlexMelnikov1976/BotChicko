@@ -13,6 +13,8 @@ from utils import get_management_percent, get_management_value, format_ruble # �
 from apscheduler.schedulers.blocking import BlockingScheduler
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from taxi import get_taxi_summary_for_date
+
 
 # === Настройки ===4
 load_dotenv()
@@ -117,6 +119,13 @@ def analyze(df):
     managers_today = today_df["Менеджер"].dropna().unique()
     manager_name = managers_today[0] if len(managers_today) > 0 else "—"
 
+    # --- Новый блок: данные по такси ---
+    taxi_err, taxi_sum, taxi_cnt = get_taxi_summary_for_date(last_date)
+    if taxi_err:
+        taxi_line = f"🚕 Такси: ошибка ({taxi_err})"
+    else:
+        taxi_line = f"🚕 Такси: {format_ruble(taxi_sum)} ({int(taxi_cnt)} поездок)"
+
     return (
         f"📅 Дата: {last_date.strftime('%Y-%m-%d')}\n\n"
         f"👤 {manager_name}\n"
@@ -127,7 +136,8 @@ def analyze(df):
         f"📦 Доставка: {format_ruble(delivery)} ({delivery_share:.1f}%)\n"
         f"📊 Доля ЗП зала: {hall_share:.1f}%\n"
         f"🍔 Фудкост: {foodcost}% {foodcost_emoji}\n"
-        f"💸 Скидка: {discount}%"
+        f"💸 Скидка: {discount}%\n"
+        f"{taxi_line}"
     )
 
 # === Обработка команды /forecast ===
@@ -229,22 +239,22 @@ if __name__ == "__main__":
     df = read_data()
     print("=== Анализ дня ===")
     print(analyze(df))
-    print("=== Прогноз ===")
-    print(forecast(df))         # <--- ДОБАВИТЬ ЭТУ СТРОКУ
-    print("⏰ Бот запущен. Отчёт будет в 9:30 по Калининграду")
-    send_to_telegram("⚡️ Перезапуск")
+    ##print("=== Прогноз ===")
+    ##print(forecast(df))         # <--- ДОБАВИТЬ ЭТУ СТРОКУ
+    ##print("⏰ Бот запущен. Отчёт будет в 9:30 по Калининграду")
+    ##send_to_telegram("⚡️ Перезапуск")
     # остальной код
 
     #send_to_telegram("⚡ Проверка! Это тестовое сообщение из main.py")
 
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    ##app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
-    app.add_handler(CommandHandler("analyze", analyze_command))
-    app.add_handler(CommandHandler("forecast", forecast_command))
-    app.add_handler(CommandHandler("managers", managers_command))
+    ##app.add_handler(CommandHandler("analyze", analyze_command))
+    ##app.add_handler(CommandHandler("forecast", forecast_command))
+    ##app.add_handler(CommandHandler("managers", managers_command))
 
-    scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
-    scheduler.add_job(job, trigger="cron", hour=9, minute=30)
-    threading.Thread(target=scheduler.start).start()
+    ##scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
+    ##scheduler.add_job(job, trigger="cron", hour=9, minute=30)
+    ##threading.Thread(target=scheduler.start).start()
 
-    app.run_polling()
+    ##app.run_polling()

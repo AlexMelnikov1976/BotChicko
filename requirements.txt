@@ -8,5 +8,7 @@ matplotlib
 gspread
 apscheduler
 python-telegram-bot==20.7
+clickhouse-connect
+
 
 
