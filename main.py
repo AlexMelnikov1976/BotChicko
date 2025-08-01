@@ -1,87 +1,26 @@
 import os
-import calendar
 import threading
-import pandas as pd
-import gspread
-import requests
 from datetime import datetime, timedelta
+import pandas as pd
 from dotenv import load_dotenv
-#from google.oauth2 import service_account   # Перенесено в utils.py
-#from google_api import get_management_value # Перенесено в utils.py
-from forecast import forecast                # Прогноз — импортируем из forecast.py
-from utils import get_management_percent, get_management_value, format_ruble # все, что нужно
 from apscheduler.schedulers.blocking import BlockingScheduler
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# === Настройки ===4
+from forecast import forecast, forecast_for_period
+from utils import (
+    read_data,
+    send_to_telegram,
+    format_ruble,
+    get_management_foodcost,
+    get_management_percent,
+    get_management_value,
+)
+
+# === Настройки ===
 load_dotenv()
-SHEET_ID = "1SHHKKcgXgbzs_AyBQJpyHx9zDauVz6iR9lz1V7Q3hyw"
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
-
-# Управляющая таблица с переменными расходами
-MANAGEMENT_SHEET_ID = "1nqpQ97D9rS2hPVQrrlbPKO5QG5RXvc936xvw6TSHnXc"
-MANAGEMENT_SHEET_NAME = "Лист1"
-
-SERVICE_ACCOUNT_FILE = 'fifth-medley-461515-h0-089884c74c28.json'
-#CREDS = service_account.Credentials.from_service_account_file(
-#    SERVICE_ACCOUNT_FILE,
-#    scopes=SCOPES
-#)
-
-# def format_ruble(val, decimals=0):
-#     if pd.isna(val):
-#         return "—"
-#     formatted = f"{val:,.{decimals}f}₽".replace(",", " ")
-#     if decimals == 0:
-#         formatted = formatted.replace(".00", "")
-#     return formatted
-
-# def send_to_telegram(message: str):
-#     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-#     data = {"chat_id": CHAT_ID, "text": message}
-#     requests.post(url, data=data)
-
-# def read_data():
-#     gc = gspread.authorize(CREDS)
-#     sheet = gc.open_by_key(SHEET_ID).sheet1
-#     df = pd.DataFrame(sheet.get_all_records())
-#     if "Дата" not in df.columns:
-#         return pd.DataFrame()
-#     for col in df.columns:
-#         if col not in ["Дата", "Фудкост общий, %", "Менеджер"]:
-#             df[col] = (
-#                 df[col].astype(str)
-#                 .str.replace(",", ".")
-#                 .str.replace(r"[^\d\.]", "", regex=True)
-#             )
-#             df[col] = pd.to_numeric(df[col], errors="coerce")
-#     df["Дата"] = pd.to_datetime(df["Дата"], dayfirst=True, errors="coerce")
-#     df = df.dropna(subset=["Дата"])
-#     return df
-
-# def get_management_foodcost():
-#     gc = gspread.authorize(CREDS)
-#     sheet = gc.open_by_key(MANAGEMENT_SHEET_ID).worksheet(MANAGEMENT_SHEET_NAME)
-#     df = pd.DataFrame(sheet.get_all_records())
-#     fc_row = df[df.iloc[:,0].astype(str).str.lower().str.strip() == "фудкост"]
-#     if not fc_row.empty:
-#         fc_percent = fc_row.iloc[0]["Процент"]
-#         try:
-#             return float(str(fc_percent).replace(",", "."))
-#         except Exception:
-#             return None
-#     return None
-
-# --- Импортируйте эти функции из utils.py ---
-from utils import (
-    read_data,             # Функция для чтения основной таблицы
-    send_to_telegram,      # Функция для отправки сообщения в телегу
-    format_ruble,          # Форматирование рубля
-    get_management_foodcost
-)
 
 def analyze(df):
     last_date = df["Дата"].max()
@@ -130,7 +69,8 @@ def analyze(df):
         f"💸 Скидка: {discount}%"
     )
 
-# === Обработка команды /forecast ===
+# --- Обработка команд ---
+
 async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
@@ -141,7 +81,22 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
-# --- Остальные команды без изменений ---
+async def forecast_period_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if str(update.effective_chat.id) != str(CHAT_ID):
+        return
+    try:
+        df = read_data()
+        # Аргумент: current/previous/last
+        period = 'current'
+        if context.args:
+            arg = context.args[0].lower()
+            if arg in ('previous', 'last', 'prev'):
+                period = 'previous'
+        result = forecast_for_period(df, period)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=result)
+    except Exception as e:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
+
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
@@ -157,18 +112,15 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     try:
         df = read_data()
-
         if "Менеджер" not in df.columns:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Колонка 'Менеджер' не найдена в данных.")
             return
-
         now = datetime.now()
         filtered = df[
             df["Менеджер"].notna() &
             (df["Дата"].dt.year == now.year) &
             (df["Дата"].dt.month == now.month)
         ]
-
         if filtered.empty:
             await context.bot.send_message(chat_id=update.effective_chat.id, text="⚠️ Нет строк с указанными менеджерами за текущий месяц.")
             return
@@ -198,7 +150,6 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         manager_stats = manager_stats.sort_values("Оценка", ascending=False)
         message = f"📅 Период: {now.strftime('%B %Y')}\n\n"
-        
         for name, row in manager_stats.iterrows():
             discount_percent = round(row['Скидка общий, %'] / 10, 1)
             message += (
@@ -208,10 +159,8 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"📏 Глубина: {row['Глубина']:.1f}\n"
                 f"💸 Скидка: {discount_percent}%\n\n"
             )
-
         message += f"🏆 Победитель: {manager_stats.index[0]}"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
-
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
@@ -224,27 +173,40 @@ def job():
     except Exception as e:
         send_to_telegram(f"❌ Ошибка: {str(e)}")
 
+def get_month_period(period='current'):
+    today = datetime.now()
+    if period == 'current':
+        start_date = today.replace(day=1)
+        end_date = today
+    elif period == 'previous':
+        first_day_this_month = today.replace(day=1)
+        last_day_prev_month = first_day_this_month - timedelta(days=1)
+        start_date = last_day_prev_month.replace(day=1)
+        end_date = last_day_prev_month
+    else:
+        raise ValueError("period должен быть 'current' или 'previous'")
+    return start_date, end_date
+
 if __name__ == "__main__":
     print("⏰ Тестовый запуск без Telegram\n")
     df = read_data()
     print("=== Анализ дня ===")
     print(analyze(df))
     print("=== Прогноз ===")
-    print(forecast(df))         # <--- ДОБАВИТЬ ЭТУ СТРОКУ
+    print(forecast(df))
+    print("=== Прогноз за прошлый месяц ===")
+    print(forecast_for_period(df, period='previous'))
     print("⏰ Бот запущен. Отчёт будет в 9:30 по Калининграду")
     send_to_telegram("⚡️ Перезапуск")
-    # остальной код
-
-    #send_to_telegram("⚡ Проверка! Это тестовое сообщение из main.py")
 
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
     app.add_handler(CommandHandler("analyze", analyze_command))
     app.add_handler(CommandHandler("forecast", forecast_command))
     app.add_handler(CommandHandler("managers", managers_command))
+    app.add_handler(CommandHandler("forecast_period", forecast_period_command))  # Новый хендлер
 
     scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
     scheduler.add_job(job, trigger="cron", hour=9, minute=30)
     threading.Thread(target=scheduler.start).start()
-
     app.run_polling()
