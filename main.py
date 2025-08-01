@@ -17,6 +17,9 @@ from utils import (
     get_management_value,
 )
 
+import logging
+logging.basicConfig(level=logging.INFO)
+
 # === Настройки ===
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -72,6 +75,7 @@ def analyze(df):
 # --- Обработка команд ---
 
 async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logging.info("Вызван forecast_command")
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
     try:
@@ -79,9 +83,11 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         result = forecast(df)
         await context.bot.send_message(chat_id=update.effective_chat.id, text=result)
     except Exception as e:
+        logging.error(f"Ошибка в forecast_command: {e}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
 async def forecast_prev_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logging.info("Вызван forecast_prev_command")
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
     try:
@@ -89,9 +95,11 @@ async def forecast_prev_command(update: Update, context: ContextTypes.DEFAULT_TY
         result = forecast_for_period(df, period='previous')
         await context.bot.send_message(chat_id=update.effective_chat.id, text=result)
     except Exception as e:
+        logging.error(f"Ошибка в forecast_prev_command: {e}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
 async def forecast_period_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logging.info("Вызван forecast_period_command")
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
     try:
@@ -104,9 +112,11 @@ async def forecast_period_command(update: Update, context: ContextTypes.DEFAULT_
         result = forecast_for_period(df, period)
         await context.bot.send_message(chat_id=update.effective_chat.id, text=result)
     except Exception as e:
+        logging.error(f"Ошибка в forecast_period_command: {e}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logging.info("Вызван analyze_command")
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
     try:
@@ -114,9 +124,11 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         report = analyze(df)
         await context.bot.send_message(chat_id=update.effective_chat.id, text=report)
     except Exception as e:
+        logging.error(f"Ошибка в analyze_command: {e}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
 async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logging.info("Вызван managers_command")
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
     try:
@@ -171,6 +183,7 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message += f"🏆 Победитель: {manager_stats.index[0]}"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
     except Exception as e:
+        logging.error(f"Ошибка в managers_command: {e}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
 # --- Планировщик для ежедневного отчёта ---
@@ -199,8 +212,8 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("analyze", analyze_command))
     app.add_handler(CommandHandler("forecast", forecast_command))
     app.add_handler(CommandHandler("managers", managers_command))
-    app.add_handler(CommandHandler("forecast_prev", forecast_prev_command))      # Новый быстрый хендлер
-    app.add_handler(CommandHandler("forecast_period", forecast_period_command))  # Универсальный хендлер
+    app.add_handler(CommandHandler("forecast_prev", forecast_prev_command))
+    app.add_handler(CommandHandler("forecast_period", forecast_period_command))
 
     scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
     scheduler.add_job(job, trigger="cron", hour=9, minute=30)
