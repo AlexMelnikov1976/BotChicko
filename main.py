@@ -75,9 +75,10 @@ def analyze(df):
 # --- Обработка команд ---
 
 async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.info("Вызван forecast_command")
-    if str(update.effective_chat.id) != str(CHAT_ID):
-        return
+    logging.info(f"Вызван forecast_command. ChatID: {update.effective_chat.id}, Expected: {CHAT_ID}")
+    # Временно отключим проверку для теста!
+    # if str(update.effective_chat.id) != str(CHAT_ID):
+    #     return
     try:
         df = read_data()
         result = forecast(df)
@@ -87,21 +88,24 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
 async def forecast_prev_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.info("Вызван forecast_prev_command")
-    if str(update.effective_chat.id) != str(CHAT_ID):
-        return
+    logging.info(f"Вызван forecast_prev_command. ChatID: {update.effective_chat.id}, Expected: {CHAT_ID}")
+    # Временно отключим проверку для теста!
+    # if str(update.effective_chat.id) != str(CHAT_ID):
+    #     return
     try:
         df = read_data()
+        logging.info(f"Данные считаны: {df.shape}")
         result = forecast_for_period(df, period='previous')
+        logging.info(f"Результат функции forecast_for_period: {result[:50]}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=result)
     except Exception as e:
         logging.error(f"Ошибка в forecast_prev_command: {e}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
 async def forecast_period_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.info("Вызван forecast_period_command")
-    if str(update.effective_chat.id) != str(CHAT_ID):
-        return
+    logging.info(f"Вызван forecast_period_command. ChatID: {update.effective_chat.id}, Expected: {CHAT_ID}")
+    # if str(update.effective_chat.id) != str(CHAT_ID):
+    #     return
     try:
         df = read_data()
         period = 'current'
@@ -116,9 +120,9 @@ async def forecast_period_command(update: Update, context: ContextTypes.DEFAULT_
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.info("Вызван analyze_command")
-    if str(update.effective_chat.id) != str(CHAT_ID):
-        return
+    logging.info(f"Вызван analyze_command. ChatID: {update.effective_chat.id}, Expected: {CHAT_ID}")
+    # if str(update.effective_chat.id) != str(CHAT_ID):
+    #     return
     try:
         df = read_data()
         report = analyze(df)
@@ -128,9 +132,9 @@ async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
 async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.info("Вызван managers_command")
-    if str(update.effective_chat.id) != str(CHAT_ID):
-        return
+    logging.info(f"Вызван managers_command. ChatID: {update.effective_chat.id}, Expected: {CHAT_ID}")
+    # if str(update.effective_chat.id) != str(CHAT_ID):
+    #     return
     try:
         df = read_data()
         if "Менеджер" not in df.columns:
