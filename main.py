@@ -75,37 +75,29 @@ def analyze(df):
 # --- Обработка команд ---
 
 async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.info(f"Вызван forecast_command. ChatID: {update.effective_chat.id}, Expected: {CHAT_ID}")
-    # Временно отключим проверку для теста!
-    # if str(update.effective_chat.id) != str(CHAT_ID):
-    #     return
+    await send_to_telegram(f"Вызван forecast_command. ChatID: {update.effective_chat.id}")
     try:
         df = read_data()
         result = forecast(df)
         await context.bot.send_message(chat_id=update.effective_chat.id, text=result)
     except Exception as e:
-        logging.error(f"Ошибка в forecast_command: {e}")
+        await send_to_telegram(f"Ошибка в forecast_command: {e}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
 async def forecast_prev_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.info(f"Вызван forecast_prev_command. ChatID: {update.effective_chat.id}, Expected: {CHAT_ID}")
-    # Временно отключим проверку для теста!
-    # if str(update.effective_chat.id) != str(CHAT_ID):
-    #     return
+    await send_to_telegram(f"Вызван forecast_prev_command. ChatID: {update.effective_chat.id}")
     try:
         df = read_data()
-        logging.info(f"Данные считаны: {df.shape}")
+        await send_to_telegram(f"Данные считаны: {df.shape}")
         result = forecast_for_period(df, period='previous')
-        logging.info(f"Результат функции forecast_for_period: {result[:50]}")
+        await send_to_telegram(f"Результат функции forecast_for_period: {str(result)[:60]}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=result)
     except Exception as e:
-        logging.error(f"Ошибка в forecast_prev_command: {e}")
+        await send_to_telegram(f"Ошибка в forecast_prev_command: {e}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
 async def forecast_period_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.info(f"Вызван forecast_period_command. ChatID: {update.effective_chat.id}, Expected: {CHAT_ID}")
-    # if str(update.effective_chat.id) != str(CHAT_ID):
-    #     return
+    await send_to_telegram(f"Вызван forecast_period_command. ChatID: {update.effective_chat.id}")
     try:
         df = read_data()
         period = 'current'
@@ -116,25 +108,21 @@ async def forecast_period_command(update: Update, context: ContextTypes.DEFAULT_
         result = forecast_for_period(df, period)
         await context.bot.send_message(chat_id=update.effective_chat.id, text=result)
     except Exception as e:
-        logging.error(f"Ошибка в forecast_period_command: {e}")
+        await send_to_telegram(f"Ошибка в forecast_period_command: {e}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
 async def analyze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.info(f"Вызван analyze_command. ChatID: {update.effective_chat.id}, Expected: {CHAT_ID}")
-    # if str(update.effective_chat.id) != str(CHAT_ID):
-    #     return
+    await send_to_telegram(f"Вызван analyze_command. ChatID: {update.effective_chat.id}")
     try:
         df = read_data()
         report = analyze(df)
         await context.bot.send_message(chat_id=update.effective_chat.id, text=report)
     except Exception as e:
-        logging.error(f"Ошибка в analyze_command: {e}")
+        await send_to_telegram(f"Ошибка в analyze_command: {e}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
 async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.info(f"Вызван managers_command. ChatID: {update.effective_chat.id}, Expected: {CHAT_ID}")
-    # if str(update.effective_chat.id) != str(CHAT_ID):
-    #     return
+    await send_to_telegram(f"Вызван managers_command. ChatID: {update.effective_chat.id}")
     try:
         df = read_data()
         if "Менеджер" not in df.columns:
@@ -187,7 +175,7 @@ async def managers_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message += f"🏆 Победитель: {manager_stats.index[0]}"
         await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
     except Exception as e:
-        logging.error(f"Ошибка в managers_command: {e}")
+        await send_to_telegram(f"Ошибка в managers_command: {e}")
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
 # --- Планировщик для ежедневного отчёта ---
@@ -200,6 +188,7 @@ def job():
         send_to_telegram(f"❌ Ошибка: {str(e)}")
 
 if __name__ == "__main__":
+    send_to_telegram("⚡️ Перезапуск (тестовая версия с логами)")
     print("⏰ Тестовый запуск без Telegram\n")
     df = read_data()
     print("=== Анализ дня ===")
@@ -209,7 +198,6 @@ if __name__ == "__main__":
     print("=== Прогноз за прошлый месяц ===")
     print(forecast_for_period(df, period='previous'))
     print("⏰ Бот запущен. Отчёт будет в 9:30 по Калининграду")
-    send_to_telegram("⚡️ Перезапуск")
 
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
