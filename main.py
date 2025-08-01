@@ -81,12 +81,21 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
 
+async def forecast_prev_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if str(update.effective_chat.id) != str(CHAT_ID):
+        return
+    try:
+        df = read_data()
+        result = forecast_for_period(df, period='previous')
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=result)
+    except Exception as e:
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=f"❌ Ошибка: {str(e)}")
+
 async def forecast_period_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if str(update.effective_chat.id) != str(CHAT_ID):
         return
     try:
         df = read_data()
-        # Аргумент: current/previous/last
         period = 'current'
         if context.args:
             arg = context.args[0].lower()
@@ -173,20 +182,6 @@ def job():
     except Exception as e:
         send_to_telegram(f"❌ Ошибка: {str(e)}")
 
-def get_month_period(period='current'):
-    today = datetime.now()
-    if period == 'current':
-        start_date = today.replace(day=1)
-        end_date = today
-    elif period == 'previous':
-        first_day_this_month = today.replace(day=1)
-        last_day_prev_month = first_day_this_month - timedelta(days=1)
-        start_date = last_day_prev_month.replace(day=1)
-        end_date = last_day_prev_month
-    else:
-        raise ValueError("period должен быть 'current' или 'previous'")
-    return start_date, end_date
-
 if __name__ == "__main__":
     print("⏰ Тестовый запуск без Telegram\n")
     df = read_data()
@@ -204,7 +199,8 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("analyze", analyze_command))
     app.add_handler(CommandHandler("forecast", forecast_command))
     app.add_handler(CommandHandler("managers", managers_command))
-    app.add_handler(CommandHandler("forecast_period", forecast_period_command))  # Новый хендлер
+    app.add_handler(CommandHandler("forecast_prev", forecast_prev_command))      # Новый быстрый хендлер
+    app.add_handler(CommandHandler("forecast_period", forecast_period_command))  # Универсальный хендлер
 
     scheduler = BlockingScheduler(timezone="Europe/Kaliningrad")
     scheduler.add_job(job, trigger="cron", hour=9, minute=30)
