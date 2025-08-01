@@ -1,86 +1,111 @@
-# forecast.py
-
-from datetime import datetime
+from datetime import datetime, timedelta
 import calendar
 import pandas as pd
-# from main import get_management_percent, get_management_value, format_ruble
 from utils import get_management_percent, get_management_value, format_ruble
 
-# Временно, если функции нет — простая заглушка:
 def get_manager_bonus_line(profit_after_usn, format_ruble):
+    # Место для вашей логики по бонусу, если нужно
     return ""
 
 def forecast(df):
-    """Прогноз по месяцу: учитывает все основные затраты и прибыль."""
-    now = datetime.now()  # Текущая дата
-
-    # Оставляем только строки за текущий месяц и год
+    """Прогноз по текущему месяцу: учитывает все основные затраты и прибыль."""
+    now = datetime.now()
+    # Только строки за текущий месяц и год
     current_month_df = df[(df["Дата"].dt.year == now.year) & (df["Дата"].dt.month == now.month)]
     if current_month_df.empty:
         return "⚠️ Нет данных за текущий месяц."
 
-    total_revenue_series = current_month_df["Выручка бар"] + current_month_df["Выручка кухня"]
-    salary_series = current_month_df["Начислено"]
+    return _forecast_core(current_month_df, now.year, now.month, period_label=f"Прогноз на {now.strftime('%B %Y')}")
+
+def forecast_for_period(df, period='current'):
+    """Прогноз по выбранному месяцу: period='current' или 'previous'."""
+    today = datetime.now()
+    if period == 'current':
+        year = today.year
+        month = today.month
+    elif period == 'previous':
+        first_day_this_month = today.replace(day=1)
+        last_day_prev_month = first_day_this_month - timedelta(days=1)
+        year = last_day_prev_month.year
+        month = last_day_prev_month.month
+    else:
+        return "❌ Некорректный период. Используйте 'current' или 'previous'."
+
+    period_df = df[(df["Дата"].dt.year == year) & (df["Дата"].dt.month == month)]
+    if period_df.empty:
+        period_text = "текущий" if period == "current" else "прошлый"
+        return f"⚠️ Нет данных за {period_text} месяц."
+    
+    label = f"Итоги за {datetime(year, month, 1).strftime('%B %Y')}"
+    return _forecast_core(period_df, year, month, period_label=label)
+
+def _forecast_core(df_period, year, month, period_label="Прогноз"):
+    # Суммарная выручка
+    total_revenue_series = df_period["Выручка бар"] + df_period["Выручка кухня"]
+    salary_series = df_period["Начислено"]
+
     avg_daily_revenue = total_revenue_series.mean()
     avg_daily_salary = salary_series.mean()
-    days_in_month = calendar.monthrange(now.year, now.month)[1]
-    forecast_revenue = avg_daily_revenue * days_in_month
+    days_in_month = calendar.monthrange(year, month)[1]
+
+    # Для текущего месяца — прогноз, для завершенного — сумма (переиспользуем ядро)
+    # Здесь — итог за период (месяц)
+    total_revenue = total_revenue_series.sum()
 
     fixed_salaries = get_management_value("ЗП упр", "Сумма")
     salary_msg = ""
     if fixed_salaries is None:
         fixed_salaries = 0
         salary_msg = "❗ Не удалось получить фикс. зарплату из управляющей таблицы.\n"
-    forecast_salary = avg_daily_salary * days_in_month + fixed_salaries
-    labor_cost_share = (forecast_salary / forecast_revenue * 100) if forecast_revenue else 0
+    total_salary = salary_series.sum() + fixed_salaries
+    labor_cost_share = (total_salary / total_revenue * 100) if total_revenue else 0
 
     franchise_percent = get_management_percent("Франшиза")
     if franchise_percent is None:
         fc_msg = "❗ Не удалось получить процент по франшизе.\n"
-        forecast_franchise = 0
+        franchise_expense = 0
     else:
-        forecast_franchise = forecast_revenue * (franchise_percent / 100)
+        franchise_expense = total_revenue * (franchise_percent / 100)
         fc_msg = ""
 
     writeoff_percent = get_management_percent("Процент списания")
     wo_msg = ""
     if writeoff_percent is None:
         wo_msg = "❗ Не удалось получить процент списания.\n"
-        forecast_writeoff = 0
+        writeoff_expense = 0
     else:
-        forecast_writeoff = forecast_revenue * (writeoff_percent / 1000)
+        writeoff_expense = total_revenue * (writeoff_percent / 1000)
 
     hozy_percent = get_management_percent("Процент хозы")
     if hozy_percent is None:
-        hozy_percent = get_management_percent("Хозы")  # fallback
+        hozy_percent = get_management_percent("Хозы")
     hozy_msg = ""
     if hozy_percent is None:
         hozy_msg = "❗ Не удалось получить процент хозрасходов.\n"
-        forecast_hozy = 0
+        hozy_expense = 0
     else:
-        forecast_hozy = forecast_revenue * (hozy_percent / 100)
+        hozy_expense = total_revenue * (hozy_percent / 100)
 
-    foodcost_month_raw = current_month_df["Фудкост общий, %"]
+    foodcost_month_raw = df_period["Фудкост общий, %"]
     foodcost_month_nums = pd.to_numeric(foodcost_month_raw, errors="coerce")
     foodcost_month = foodcost_month_nums.mean()
-    forecast_foodcost = forecast_revenue * (foodcost_month / 1000)
+    foodcost_expense = total_revenue * (foodcost_month / 1000)
 
-    delivery_col_candidates = [col for col in current_month_df.columns if "достав" in col.lower()]
+    delivery_col_candidates = [col for col in df_period.columns if "достав" in col.lower()]
     if delivery_col_candidates:
         delivery_col = delivery_col_candidates[0]
     else:
-        raise Exception("Столбец доставки не найден!")
-    delivery_series = current_month_df[delivery_col]
-    avg_daily_delivery = delivery_series.mean()
-    forecast_delivery = avg_daily_delivery * days_in_month
+        return "Столбец доставки не найден!"
+    delivery_series = df_period[delivery_col]
+    total_delivery = delivery_series.sum()
     delivery_percent = get_management_percent("Процент доставка")
     if delivery_percent is not None and delivery_percent > 100:
         delivery_percent = delivery_percent / 100
     if delivery_percent is None:
         delivery_msg = "❗ Не удалось получить процент по доставке.\n"
-        forecast_delivery_expense = 0
+        delivery_expense = 0
     else:
-        forecast_delivery_expense = forecast_delivery * (delivery_percent / 100)
+        delivery_expense = total_delivery * (delivery_percent / 100)
         delivery_msg = ""
 
     acquiring_percent = get_management_percent("Эквайринг")
@@ -88,9 +113,9 @@ def forecast(df):
         acquiring_percent = acquiring_percent / 1000
     if acquiring_percent is None:
         acquiring_msg = "❗ Не удалось получить процент эквайринга.\n"
-        forecast_acquiring = 0
+        acquiring_expense = 0
     else:
-        forecast_acquiring = forecast_revenue * (acquiring_percent / 1000)
+        acquiring_expense = total_revenue * (acquiring_percent / 1000)
         acquiring_msg = ""
 
     bank_commission_percent = get_management_percent("Комиссия Банка")
@@ -98,9 +123,9 @@ def forecast(df):
         bank_commission_percent = bank_commission_percent / 1000
     if bank_commission_percent is None:
         bank_commission_msg = "❗ Не удалось получить процент комиссии банка.\n"
-        forecast_bank_commission = 0
+        bank_commission_expense = 0
     else:
-        forecast_bank_commission = forecast_revenue * (bank_commission_percent / 1000)
+        bank_commission_expense = total_revenue * (bank_commission_percent / 1000)
         bank_commission_msg = ""
 
     permanent_costs = get_management_value("Постоянные", "Сумма")
@@ -112,58 +137,58 @@ def forecast(df):
 
     salary_tax_percent = get_management_percent("Налоги ЗП")
     if salary_tax_percent is not None:
-        forecast_salary_tax = forecast_salary * (salary_tax_percent / 100)
+        salary_tax = total_salary * (salary_tax_percent / 100)
         salary_tax_msg = ""
     else:
-        forecast_salary_tax = 0
+        salary_tax = 0
         salary_tax_msg = "❗ Не удалось получить процент по налогам ЗП.\n"
 
-    var_expense_share = (forecast_franchise / forecast_revenue * 100) if forecast_revenue else 0
-    wo_share = (forecast_writeoff / forecast_revenue * 100) if forecast_revenue else 0
-    hozy_share = (forecast_hozy / forecast_revenue * 100) if forecast_revenue else 0
+    var_expense_share = (franchise_expense / total_revenue * 100) if total_revenue else 0
+    wo_share = (writeoff_expense / total_revenue * 100) if total_revenue else 0
+    hozy_share = (hozy_expense / total_revenue * 100) if total_revenue else 0
 
     total_costs = (
-        forecast_salary
-        + forecast_foodcost
-        + forecast_franchise
-        + forecast_writeoff
-        + forecast_hozy
-        + forecast_delivery_expense
-        + forecast_acquiring
-        + forecast_bank_commission
+        total_salary
+        + foodcost_expense
+        + franchise_expense
+        + writeoff_expense
+        + hozy_expense
+        + delivery_expense
+        + acquiring_expense
+        + bank_commission_expense
         + permanent_costs
-        + forecast_salary_tax
+        + salary_tax
     )
 
-    profit = forecast_revenue - total_costs
+    profit = total_revenue - total_costs
 
     usn_percent = get_management_percent("УСН")
     if usn_percent is not None:
-        forecast_usn = profit * (usn_percent / 100)
+        usn_expense = profit * (usn_percent / 100)
         usn_msg = ""
     else:
-        forecast_usn = 0
+        usn_expense = 0
         usn_msg = "❗ Не удалось получить процент УСН.\n"
-        
-    profit_after_usn = profit - forecast_usn
+
+    profit_after_usn = profit - usn_expense
     bonus_line = get_manager_bonus_line(profit_after_usn, format_ruble)
 
     return (
-        f"📅 Прогноз на {now.strftime('%B %Y')}:\n"
-        f"📊 Выручка: {format_ruble(forecast_revenue)}\n"
-        f"🪑 ЗП: {format_ruble(forecast_salary)} (LC: {labor_cost_share:.1f}%)\n"
-        f"🍔 Фудкост: {format_ruble(forecast_foodcost)} ({foodcost_month/10 :.1f}%)\n"
-        f"💼 Франшиза: {format_ruble(forecast_franchise)} ({var_expense_share:.1f}%)\n"
-        f"📉 Списание: {format_ruble(forecast_writeoff)} ({wo_share:.1f}%)\n"
-        f"🧹 Хозы: {format_ruble(forecast_hozy)} ({hozy_share:.1f}%)\n"
-        f"🚚 Доставка: {format_ruble(forecast_delivery_expense)} ({delivery_percent if delivery_percent is not None else '-'}%)\n"
-        f"🏦 Эквайринг: {format_ruble(forecast_acquiring)} ({acquiring_percent/10:.1f}%)\n"
-        f"💳 Комиссия банка: {format_ruble(forecast_bank_commission)} ({bank_commission_percent/10:.1f}%)\n"
-        f"🧾 Налоги на ЗП: {format_ruble(forecast_salary_tax)} ({salary_tax_percent if salary_tax_percent is not None else '-'}%)\n"
+        f"📅 {period_label}:\n"
+        f"📊 Выручка: {format_ruble(total_revenue)}\n"
+        f"🪑 ЗП: {format_ruble(total_salary)} (LC: {labor_cost_share:.1f}%)\n"
+        f"🍔 Фудкост: {format_ruble(foodcost_expense)} ({foodcost_month/10:.1f}%)\n"
+        f"💼 Франшиза: {format_ruble(franchise_expense)} ({var_expense_share:.1f}%)\n"
+        f"📉 Списание: {format_ruble(writeoff_expense)} ({wo_share:.1f}%)\n"
+        f"🧹 Хозы: {format_ruble(hozy_expense)} ({hozy_share:.1f}%)\n"
+        f"🚚 Доставка: {format_ruble(delivery_expense)} ({delivery_percent if delivery_percent is not None else '-' }%)\n"
+        f"🏦 Эквайринг: {format_ruble(acquiring_expense)} ({acquiring_percent/10 if acquiring_percent is not None else '-'}%)\n"
+        f"💳 Комиссия банка: {format_ruble(bank_commission_expense)} ({bank_commission_percent/10 if bank_commission_percent is not None else '-'}%)\n"
+        f"🧾 Налоги на ЗП: {format_ruble(salary_tax)} ({salary_tax_percent if salary_tax_percent is not None else '-'}%)\n"
         f"🧱 Постоянные: {format_ruble(permanent_costs)}\n"
-        f"💰 Прогнозная прибыль: {format_ruble(profit)}\n"
-        f"🏛 УСН: {format_ruble(forecast_usn)} ({usn_percent if usn_percent is not None else '-'}%)\n"
+        f"💰 Прибыль: {format_ruble(profit)}\n"
+        f"🏛 УСН: {format_ruble(usn_expense)} ({usn_percent if usn_percent is not None else '-'}%)\n"
         f"💵 Прибыль после УСН: {format_ruble(profit_after_usn)}\n"
         f"{bonus_line}\n"
-        f"{fc_msg}{wo_msg}{hozy_msg}{salary_msg}{delivery_msg}{acquiring_msg}{bank_commission_msg}{permanent_msg}"
+        f"{fc_msg}{wo_msg}{hozy_msg}{salary_msg}{delivery_msg}{acquiring_msg}{bank_commission_msg}{permanent_msg}{salary_tax_msg}{usn_msg}"
     )
